@@ -1,6 +1,7 @@
 use std::fmt::Display;
+use strum_macros::EnumIter;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, EnumIter)]
 #[repr(u8)]
 pub enum Op {
 	Pa,

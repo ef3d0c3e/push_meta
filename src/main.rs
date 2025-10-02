@@ -1,16 +1,9 @@
-use std::collections::vec_deque;
-use std::collections::VecDeque;
-use std::fmt::Display;
-use std::ops::Index;
-use std::ops::IndexMut;
-use std::ptr;
-
 use rand::seq::SliceRandom;
-use rand::thread_rng;
-use rand::Rng;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 use crate::ops::Op;
 use crate::sort_small::Block;
 use crate::stack_deque::StackDeque;
@@ -54,6 +47,18 @@ impl State {
 			stack_b: StackDeque::new(values.len()),
 			ops: Vec::default(),
 			saves: Vec::default(),
+		}
+	}
+
+	fn from_save(&self, save: usize) -> Self {
+		assert!(save < self.saves.len());
+		let st = self.saves[save].clone();
+		
+		Self {
+			stack_a: st.stack_a,
+			stack_b: st.stack_b,
+			ops: self.ops[0..save].iter().copied().collect::<Vec<_>>(),
+			saves: vec![],
 		}
 	}
 
@@ -268,6 +273,101 @@ impl State {
         self.sort_stack_a(n - pushed);
         self.sort_stack_b(pushed);
 	}
+
+	fn find_state(&self, st: &SaveState, start: usize, len: usize) -> Option<usize>
+	{
+		let end = (start + len).min(self.saves.len());
+		let mut best = None;
+		for i in start..end
+		{
+			if &self.saves[i] == st
+			{
+				best = Some(i)
+			}
+		}
+		best
+	}
+}
+
+#[derive(Debug)]
+pub struct CompressorSkip {
+	pub ops: Vec<Op>,
+	pub skip: usize,
+}
+
+#[derive(Debug)]
+pub struct Compressor<'s>
+{
+	pub max_depth: usize,
+	pub max_len: usize,
+
+	pub skips: Vec<CompressorSkip>,
+
+	pub skip: usize,
+	pub ops: Vec<Op>,
+
+	pub state: &'s State,
+}
+
+#[derive(Debug, Clone)]
+pub struct CompressorState
+{
+	pub ops: Vec<Op>,
+	pub depth: usize,
+	pub skip: usize,
+}
+
+impl<'s> Compressor<'s> {
+	pub fn new(state: &'s State, max_depth: usize, max_len: usize) -> Self {
+		Self {
+			max_depth,
+			max_len,
+			skips: vec![],
+			skip: 0,
+			ops: vec![],
+			state,
+		}
+	}
+
+	pub fn compress(&mut self, mut comp: CompressorState, index: usize) -> (usize, Vec<Op>)
+	{
+		let mut best_ops = None;
+		let mut best_skip = None;
+		let mut skip = 0;
+		for op in Op::iter()
+		{
+			let mut cloned = self.state.from_save(index);
+			comp.ops.push(op);
+			cloned.op(op);
+
+			if let Some(fut) = self.state.find_state(&cloned.saves[0], index + 1, self.max_len) {
+				skip = fut - index - comp.depth;
+				if skip >= best_skip.unwrap_or(0) {
+					best_ops = Some(vec![op]);
+					best_skip = Some(skip);
+				}
+			}
+			if comp.depth < self.max_depth
+			{
+				let mut new = comp.clone();
+				new.depth += 1;
+				let (skip, ops) = self.compress(new, index);
+				if skip >= best_skip.unwrap_or(0) {
+					best_ops = Some(ops);
+					best_skip = Some(skip);
+				}
+			}
+			else
+			{
+				// Find best
+			}
+
+			comp.ops.pop();
+			self.ops.pop();
+		}
+		
+		(best_skip.unwrap_or(0), best_ops.unwrap_or(vec![]))
+	}
 }
 
 fn main() {
@@ -281,5 +381,7 @@ fn main() {
 	let mut s = State::new(numbers.as_slice());
 	s.sort_stack_a(s.stack_a.len());
 	s.print(true);
+	println!("sorted: {} in {} ops", s.stack_a.iter().is_sorted() && s.stack_b.is_empty(), s.ops.len());
+	s = s.compress(2, 500);
 	println!("sorted: {} in {} ops", s.stack_a.iter().is_sorted() && s.stack_b.is_empty(), s.ops.len());
 }

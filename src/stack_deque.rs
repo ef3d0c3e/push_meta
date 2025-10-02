@@ -1,7 +1,7 @@
 use std::{ops::{Index, IndexMut, Range}, ptr};
 
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct StackDeque<T: Copy + 'static>
 {
 	buffer: Vec<T>,
@@ -9,6 +9,26 @@ pub struct StackDeque<T: Copy + 'static>
 	capacity: usize,
 	pos: usize,
 }
+
+impl<T: PartialEq + Copy + 'static> PartialEq for StackDeque<T>
+{
+    fn eq(&self, other: &Self) -> bool {
+		if self.len != other.len || self.capacity != other.capacity
+		{
+			return false;
+		}
+		for i in 0..self.len()
+		{
+			if self[i] != other[i]
+			{
+				return false;
+			}
+		}
+		return true;
+    }
+}
+
+impl<T: Eq + Copy + 'static> Eq for StackDeque<T> {}
 
 impl<T: Copy + 'static> StackDeque<T>
 {
