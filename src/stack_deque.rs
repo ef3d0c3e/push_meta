@@ -82,6 +82,18 @@ impl<T: Copy + 'static> StackDeque<T>
         let slice = &mut self.buffer[self.pos..self.pos + self.len];
         StackDequeIterMut { slice, index: 0 }
     }
+
+	pub fn back(&self) -> &T
+	{
+		assert!(self.len != 0);
+		&self.buffer[self.pos + self.len - 1]
+	}
+
+	pub fn front(&self) -> &T
+	{
+		assert!(self.len != 0);
+		&self.buffer[self.pos]
+	}
 }
 
 impl<T: Copy + 'static> Index<usize> for StackDeque<T> {
@@ -112,7 +124,7 @@ impl<'a, T: Copy + 'static> Iterator for StackDequeIter<'a, T>
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-		if self.index > self.slice.len()
+		if self.index >= self.slice.len()
 		{
 			None
 		}
