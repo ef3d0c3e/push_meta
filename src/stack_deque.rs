@@ -28,7 +28,7 @@ impl<T: Copy + 'static> StackDeque<T>
 	pub fn push_back(&mut self, value: T)
 	{
 		assert!(self.len != self.capacity);
-		if self.pos == self.capacity * 2
+		if self.pos + 1 == self.capacity * 2
 		{
 			unsafe {
 				ptr::copy(self.buffer.as_ptr().add(self.pos), self.buffer.as_mut_ptr().add(self.capacity), self.len);
@@ -64,6 +64,7 @@ impl<T: Copy + 'static> StackDeque<T>
 	{
 		assert!(self.len != 0);
 		self.pos += 1;
+		self.len -= 1;
 	}
 
 	pub fn len(&self) -> usize
@@ -93,6 +94,11 @@ impl<T: Copy + 'static> StackDeque<T>
 	{
 		assert!(self.len != 0);
 		&self.buffer[self.pos]
+	}
+
+	pub fn is_empty(&self) -> bool
+	{
+		self.len == 0
 	}
 }
 
