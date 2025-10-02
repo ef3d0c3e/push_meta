@@ -1,4 +1,4 @@
-use std::{ops::{Index, IndexMut}, ptr};
+use std::{ops::{Index, IndexMut, Range}, ptr};
 
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,6 +108,17 @@ impl<T: Copy + 'static> Index<usize> for StackDeque<T> {
     fn index(&self, index: usize) -> &Self::Output {
 		assert!(index < self.len());
         &self.buffer[self.pos + index]
+    }
+}
+
+impl<T: Copy + 'static> std::ops::Index<Range<usize>> for StackDeque<T>
+where
+{
+    type Output = [T];
+
+    fn index(&self, index: Range<usize>) -> &Self::Output {
+		assert!(index.end <= self.len());
+        &self.buffer[self.pos + index.start..self.pos + index.end]
     }
 }
 

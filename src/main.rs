@@ -12,8 +12,11 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
 use crate::ops::Op;
+use crate::sort_small::Block;
 use crate::stack_deque::StackDeque;
+use crate::sort_small::sort_small;
 mod ops;
+mod sort_small;
 mod stack_deque;
 
 // implement access operator for StackDeque[usize] ...
@@ -121,9 +124,7 @@ impl State {
 			Op::Ra => {
 				if self.stack_a.len() != 0 {
 					let v = *self.stack_a.front();
-					println!("ale={}", self.stack_a.len());
 					self.stack_a.pop_front();
-					println!("ale={} v={v}", self.stack_a.len());
 					self.stack_a.push_back(v);
 				}
 			}
@@ -185,6 +186,13 @@ impl State {
 		self.op_unsaved(op);
 	}
 
+	fn ops(&mut self, ops: &[Op]) {
+		for op in ops
+		{
+			self.op(*op);
+		}
+	}
+
 	fn choose_pivot(stack: &StackDeque<i32>, len: usize) -> i32
 	{
 		assert!(stack.len() >= len);
@@ -198,7 +206,7 @@ impl State {
 		assert!(self.stack_b.len() >= n);
 
         if n <= 3 {
-			sort_small(self, Block::BlkBTop, n);
+			self.ops(sort_small(self, Block::BlkBTop, n));
             return;
         }
 
@@ -232,7 +240,7 @@ impl State {
         assert!(self.stack_a.len() >= n);
 
         if n <= 3 {
-			sort_small(self, Block::BlkATop, n);
+			self.ops(sort_small(self, Block::BlkATop, n));
             return;
         }
 
@@ -259,121 +267,6 @@ impl State {
         // recursively sort the chunk that stayed in A, then sort the chunk we pushed to B
         self.sort_stack_a(n - pushed);
         self.sort_stack_b(pushed);
-	}
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-enum Block {
-	BlkATop,
-	BlkABot,
-	BlkBTop,
-	BlkBBot,
-}
-
-fn sort_small(state: &mut State, b: Block, n: usize) {
-	if n <= 1
-	{
-		return;
-	}
-	
-	if n == 2 && b == Block::BlkATop
-	{
-		let u = state.stack_a[0];
-		let v = state.stack_a[1];
-		if u > v
-		{
-			state.op(Op::Sa);
-		}
-	}
-	else if n == 2 && b == Block::BlkBTop
-	{
-		let u = state.stack_b[0];
-		let v = state.stack_b[1];
-		if v > u
-		{
-			state.op(Op::Sb);
-		}
-	}
-	else if n == 3 && b == Block::BlkATop {
-		let u = state.stack_a[0];
-		let v = state.stack_a[1];
-		let w = state.stack_a[2];
-
-		if u > v && v > w {
-			state.op(Op::Sa);
-			state.op(Op::Ra);
-			state.op(Op::Sa);
-			state.op(Op::Rra);
-			state.op(Op::Sa);
-		}
-		if u > w && w > v {
-			state.op(Op::Sa);
-			state.op(Op::Ra);
-			state.op(Op::Sa);
-			state.op(Op::Rra);
-		}
-		if v > u && u > w {
-			state.op(Op::Ra);
-			state.op(Op::Sa);
-			state.op(Op::Rra);
-			state.op(Op::Sa);
-		}
-		if v > w && w > u {
-			state.op(Op::Ra);
-			state.op(Op::Sa);
-			state.op(Op::Rra);
-		}
-		if w > u && u > v {
-			state.op(Op::Sa);
-		}
-		if w > v && v > u {}
-	} else if n == 3 && b == Block::BlkBTop {
-		let u = state.stack_b[0];
-		let v = state.stack_b[1];
-		let w = state.stack_b[2];
-
-		if u > v && v > w {
-			state.op(Op::Pa);
-			state.op(Op::Pa);
-			state.op(Op::Pa);
-		}
-		if u > w && w > v {
-			state.op(Op::Pa);
-			state.op(Op::Sb);
-			state.op(Op::Pa);
-			state.op(Op::Pa);
-		}
-		if v > u && u > w {
-			state.op(Op::Sb);
-			state.op(Op::Pa);
-			state.op(Op::Pa);
-			state.op(Op::Pa);
-		}
-		if v > w && w > u {
-			state.op(Op::Sb);
-			state.op(Op::Pa);
-			state.op(Op::Sb);
-			state.op(Op::Pa);
-			state.op(Op::Pa);
-		}
-		if w > u && u > v {
-			state.op(Op::Pa);
-			state.op(Op::Sb);
-			state.op(Op::Pa);
-			state.op(Op::Sa);
-			state.op(Op::Pa);
-		}
-		if w > v && v > u {
-			state.op(Op::Sb);
-			state.op(Op::Pa);
-			state.op(Op::Sb);
-			state.op(Op::Pa);
-			state.op(Op::Sa);
-			state.op(Op::Pa);
-		}
-	} else {
-		panic!("Unsupported sort_small")
 	}
 }
 
