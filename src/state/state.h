@@ -126,7 +126,7 @@ typedef struct state_t state_t;
 
 typedef struct
 {
-	int*const start;
+	int* const start;
 	int* data;
 	size_t size;
 	/* guard */
@@ -159,10 +159,15 @@ typedef struct state_t
 	save_t* saves;
 	size_t saves_size;
 	size_t saves_capacity;
+	size_t bifurcate_point;
 } state_t;
 
 state_t
-state_bifurcate(size_t history);
+state_new(size_t capacity);
+void
+state_destroy(state_t *state);
+state_t
+state_bifurcate(const state_t* state, size_t history);
 void
 state_op(state_t* state, enum stack_op op);
 
