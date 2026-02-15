@@ -151,6 +151,8 @@ stack_t
 stack_new(size_t capacity);
 void
 stack_destroy(stack_t* stack);
+int
+stack_is_sorted(const stack_t *stack);
 
 typedef struct
 {

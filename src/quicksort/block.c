@@ -34,25 +34,25 @@ blk_move(state_t* state, enum blk_dest from, enum blk_dest to)
 	       ((from & BLK_SEL__) == BLK_B__ && state->sb.size));
 
 	static const enum stack_op table[16][4] = {
-		[(BLK_A_TOP << 2) | BLK_A_TOP] = {STACK_OP_NOP},
-		[(BLK_A_TOP << 2) | BLK_A_BOT] = {STACK_OP_RA, STACK_OP_NOP},
-		[(BLK_A_TOP << 2) | BLK_B_TOP] = {STACK_OP_PB, STACK_OP_NOP},
-		[(BLK_A_TOP << 2) | BLK_B_BOT] = {STACK_OP_PB, STACK_OP_RB, STACK_OP_NOP},
+		[(BLK_A_TOP << 2) | BLK_A_TOP] = { STACK_OP_NOP },
+		[(BLK_A_TOP << 2) | BLK_A_BOT] = { STACK_OP_RA, STACK_OP_NOP },
+		[(BLK_A_TOP << 2) | BLK_B_TOP] = { STACK_OP_PB, STACK_OP_NOP },
+		[(BLK_A_TOP << 2) | BLK_B_BOT] = { STACK_OP_PB, STACK_OP_RB, STACK_OP_NOP },
 
-		[(BLK_A_BOT << 2) | BLK_A_TOP] = {STACK_OP_RRA, STACK_OP_NOP},
-		[(BLK_A_BOT << 2) | BLK_A_BOT] = {STACK_OP_NOP},
-		[(BLK_A_BOT << 2) | BLK_B_TOP] = {STACK_OP_RRA, STACK_OP_PB, STACK_OP_NOP},
-		[(BLK_A_BOT << 2) | BLK_B_BOT] = {STACK_OP_RRA, STACK_OP_PB, STACK_OP_RB, STACK_OP_NOP},
+		[(BLK_A_BOT << 2) | BLK_A_TOP] = { STACK_OP_RRA, STACK_OP_NOP },
+		[(BLK_A_BOT << 2) | BLK_A_BOT] = { STACK_OP_NOP },
+		[(BLK_A_BOT << 2) | BLK_B_TOP] = { STACK_OP_RRA, STACK_OP_PB, STACK_OP_NOP },
+		[(BLK_A_BOT << 2) | BLK_B_BOT] = { STACK_OP_RRA, STACK_OP_PB, STACK_OP_RB, STACK_OP_NOP },
 
-		[(BLK_B_TOP << 2) | BLK_A_TOP] = {STACK_OP_PA, STACK_OP_NOP},
-		[(BLK_B_TOP << 2) | BLK_A_BOT] = {STACK_OP_PA, STACK_OP_RA, STACK_OP_NOP},
-		[(BLK_B_TOP << 2) | BLK_B_TOP] = {STACK_OP_NOP},
-		[(BLK_B_TOP << 2) | BLK_B_BOT] = {STACK_OP_RB, STACK_OP_NOP},
+		[(BLK_B_TOP << 2) | BLK_A_TOP] = { STACK_OP_PA, STACK_OP_NOP },
+		[(BLK_B_TOP << 2) | BLK_A_BOT] = { STACK_OP_PA, STACK_OP_RA, STACK_OP_NOP },
+		[(BLK_B_TOP << 2) | BLK_B_TOP] = { STACK_OP_NOP },
+		[(BLK_B_TOP << 2) | BLK_B_BOT] = { STACK_OP_RB, STACK_OP_NOP },
 
-		[(BLK_B_BOT << 2) | BLK_A_TOP] = {STACK_OP_RRB, STACK_OP_PA, STACK_OP_NOP},
-		[(BLK_B_BOT << 2) | BLK_A_BOT] = {STACK_OP_RRB, STACK_OP_PA, STACK_OP_RA, STACK_OP_NOP},
-		[(BLK_B_BOT << 2) | BLK_B_TOP] = {STACK_OP_RRB, STACK_OP_NOP},
-		[(BLK_B_BOT << 2) | BLK_B_BOT] = {STACK_OP_NOP},
+		[(BLK_B_BOT << 2) | BLK_A_TOP] = { STACK_OP_RRB, STACK_OP_PA, STACK_OP_NOP },
+		[(BLK_B_BOT << 2) | BLK_A_BOT] = { STACK_OP_RRB, STACK_OP_PA, STACK_OP_RA, STACK_OP_NOP },
+		[(BLK_B_BOT << 2) | BLK_B_TOP] = { STACK_OP_RRB, STACK_OP_NOP },
+		[(BLK_B_BOT << 2) | BLK_B_BOT] = { STACK_OP_NOP },
 	};
 
 	const unsigned int id = (from << 2) | to;
@@ -168,6 +168,37 @@ blk_sort_3(state_t* state, blk_t blk)
 		state_op(state, table[blk.dest][rank][i]);
 }
 
+static inline split_t
+blk_split(state_t *state, blk_t blk, int p1, int p2)
+{
+	split_t split = {
+		.top = { .size = 0, .dest = blk.dest == BLK_B_BOT ? BLK_B_TOP : BLK_B_BOT},
+		.mid = { .size = 0, .dest = (blk.dest & BLK_SEL__) == BLK_B__ ? BLK_A_TOP : BLK_B_TOP},
+		.bot = { .size = 0, .dest = blk.dest == BLK_A_TOP ? BLK_A_TOP : BLK_A_BOT},
+	};
+
+	for (size_t i = 0; i < blk.size; ++i)
+	{
+		const int val = blk_value(state, blk.dest, i);
+		if (val >= p2)
+		{
+			blk_move(state, blk.dest, split.bot.dest);
+			++split.bot.size;
+		}
+		else if (val >= p1)
+		{
+			blk_move(state, blk.dest, split.mid.dest);
+			++split.mid.size;
+		}
+		else
+		{
+			blk_move(state, blk.dest, split.top.dest);
+			++split.top.size;
+		}
+	}
+	return split;
+}
+
 static void
 quicksort_impl(state_t* state, blk_t blk)
 {
@@ -181,10 +212,30 @@ quicksort_impl(state_t* state, blk_t blk)
 
 	// Sort manually for small blocks
 	if (blk.size == 1) {
-		(blk_sort_small(s, blk));
+		blk_move(state, blk.dest, BLK_A_TOP);
 		return;
 	}
-	split_t split;
+	else if (blk.size == 2) {
+		blk_sort_2(state, blk);
+		return;
+	}
+	else if (blk.size == 3) {
+		blk_sort_3(state, blk);
+		return;
+	}
+
+	// Choose pivots & split
+	int pivots[2] = {blk_value(state, blk.dest, blk.size / 3), blk_value(state, blk.dest, 2 * blk.size / 3)};
+	if (pivots[0] > pivots[1])
+	{
+		const int tmp = pivots[0];
+		pivots[0] = pivots[1];
+		pivots[1] = tmp;
+	}
+	const split_t split = blk_split(state, blk, pivots[0], pivots[1]);
+	quicksort_impl(state, split.top);
+	quicksort_impl(state, split.mid);
+	quicksort_impl(state, split.bot);
 }
 
 void

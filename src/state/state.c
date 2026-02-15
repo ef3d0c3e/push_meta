@@ -1,5 +1,6 @@
 #include "state.h"
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 
 /* --- Stack --- */
@@ -21,18 +22,29 @@ void
 stack_destroy(stack_t* stack)
 {
 	assert(stack->data);
-	free(stack->data);
+	assert(stack->start);
+	free(stack->start);
 }
 
-/* --- Save --- */
+int
+stack_is_sorted(const stack_t* stack)
+{
+	for (size_t i = 1; i < stack->size; ++i)
+	{
+		if (stack->data[i - 1] > stack->data[i])
+			return (0);
+	}
+	return (1);
+}
 
-save_t
-save_new(const struct state_t* state)
+  /* --- Save --- */
+
+  save_t save_new(const struct state_t* state)
 {
 	assert(state->sa.capacity == state->sb.capacity);
 	assert(state->sa.size + state->sb.size == state->sa.capacity);
 	save_t save = {
-		.data = xmalloc(state->sa.capacity + sizeof(int)),
+		.data = xmalloc(state->sa.capacity * sizeof(int)),
 		.sz_a = state->sa.size,
 		.sz_b = state->sb.size,
 		.op = STACK_OP_NOP,
@@ -93,7 +105,7 @@ state_bifurcate(const state_t* state, size_t history)
 		.saves_size = history,
 	};
 	memcpy(new.saves, state->saves, history * sizeof(save_t));
-	const save_t *save = &state->saves[history];
+	const save_t* save = &state->saves[history];
 	new.sa.size = save->sz_a;
 	new.sb.size = save->sz_b;
 	memcpy(new.sa.data, save->data, sizeof(int) * new.sa.size);
@@ -101,7 +113,8 @@ state_bifurcate(const state_t* state, size_t history)
 	return new;
 }
 
-static void state_add_save(state_t *state, enum stack_op op)
+static void
+state_add_save(state_t* state, enum stack_op op)
 {
 	save_t save = save_new(state);
 	save.op = op;
@@ -113,6 +126,18 @@ static void state_add_save(state_t *state, enum stack_op op)
 	state->saves[state->saves_size++] = save;
 }
 
+static inline const char*
+op_name(enum stack_op op)
+{
+	static const char* table[] = {
+		[STACK_OP_SA] = "sa",   [STACK_OP_SB] = "sb",   [STACK_OP_PA] = "pa",
+		[STACK_OP_PB] = "pb",   [STACK_OP_RA] = "ra",   [STACK_OP_RB] = "rb",
+		[STACK_OP_RRA] = "rra", [STACK_OP_RRB] = "rrb", [STACK_OP_NOP] = "nop",
+	};
+
+	return table[op];
+}
+
 void
 state_op(state_t* state, enum stack_op op)
 {
@@ -122,10 +147,12 @@ state_op(state_t* state, enum stack_op op)
 	if (state->saves_size == 0)
 		state_add_save(state, STACK_OP_NOP);
 
+	printf("%s\n", op_name(op));
+
 	int tmp;
 	stack_t* const s[2] = { &state->sa, &state->sb };
 	for (unsigned int i = 0; i < 1; ++i) {
-		if (!((op & STACK_OPERAND__) & i))
+		if (!(op & (i + 1)))
 			continue;
 		switch (op & STACK_OPERATOR__) {
 			case STACK_OP_SWAP__:
