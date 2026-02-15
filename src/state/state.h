@@ -124,6 +124,20 @@ enum stack_op
 
 typedef struct state_t state_t;
 
+/**
+ * @brief The stack data structure
+ *
+ * The instructions set requires underlying stacks to be implemented. They are called
+ * `stacks` however they act as double-ended queue because of the
+ * (reverse-)rotate operations. Since the stacks cannot grow (limited to the
+ * initial program input size), the stacks are implemented using a double-ended queue
+ * with a static capacity of 3*N (N = input size). The initial buffer is contained
+ * within [N, 2N], and will move with pushes, rotates and reverse-rotates. Once
+ * it reaches the edges, [0, N] or [2N, 3N], if will be copied back to the
+ * center position. Using a 3*N factor allows the use of `memcpy` when re-centering the values,
+ * instead of `memmove`. This guarantees that every operation is amortized O(1).
+ *
+ */
 typedef struct
 {
 	int* const start;
