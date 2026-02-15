@@ -2,6 +2,7 @@
 #define STATE_H
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "../util.h"
@@ -186,5 +187,20 @@ state_t
 state_bifurcate(const state_t* state, size_t history);
 void
 state_op(state_t* state, enum stack_op op);
+
+static void
+ps(const state_t* s)
+{
+	printf(" A | B\n");
+	for (size_t i = 0; i < s->sa.size || i < s->sb.size; ++i) {
+		if (i < s->sa.size)
+			printf("%-3d|", s->sa.data[i]);
+		else
+			printf("   |");
+		if (i < s->sb.size)
+			printf("%3d", s->sb.data[i]);
+		printf("\n");
+	}
+}
 
 #endif // STATE_H

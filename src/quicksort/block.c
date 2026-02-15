@@ -1,4 +1,5 @@
 #include <quicksort/quicksort.h>
+#include <stdio.h>
 
 static inline int
 blk_value(const state_t* state, enum blk_dest blk, size_t pos)
@@ -177,9 +178,9 @@ blk_split(state_t *state, blk_t blk, int p1, int p2)
 		.bot = { .size = 0, .dest = blk.dest == BLK_A_TOP ? BLK_A_TOP : BLK_A_BOT},
 	};
 
-	for (size_t i = 0; i < blk.size; ++i)
+	while (blk.size)
 	{
-		const int val = blk_value(state, blk.dest, i);
+		const int val = blk_value(state, blk.dest, 0);
 		if (val >= p2)
 		{
 			blk_move(state, blk.dest, split.bot.dest);
@@ -195,6 +196,7 @@ blk_split(state_t *state, blk_t blk, int p1, int p2)
 			blk_move(state, blk.dest, split.top.dest);
 			++split.top.size;
 		}
+		--blk.size;
 	}
 	return split;
 }
@@ -202,7 +204,8 @@ blk_split(state_t *state, blk_t blk, int p1, int p2)
 static void
 quicksort_impl(state_t* state, blk_t blk)
 {
-	assert(blk.size != 0);
+	if (blk.size == 0)
+		return;
 
 	// Normalize direction
 	if (blk.dest == BLK_A_BOT && state->sa.size == blk.size)
@@ -233,9 +236,9 @@ quicksort_impl(state_t* state, blk_t blk)
 		pivots[1] = tmp;
 	}
 	const split_t split = blk_split(state, blk, pivots[0], pivots[1]);
-	quicksort_impl(state, split.top);
-	quicksort_impl(state, split.mid);
 	quicksort_impl(state, split.bot);
+	quicksort_impl(state, split.mid);
+	quicksort_impl(state, split.top);
 }
 
 void

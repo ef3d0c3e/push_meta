@@ -151,8 +151,9 @@ state_op(state_t* state, enum stack_op op)
 
 	int tmp;
 	stack_t* const s[2] = { &state->sa, &state->sb };
-	for (unsigned int i = 0; i < 1; ++i) {
-		if (!(op & (i + 1)))
+
+	for (unsigned int i = 0; i < 2; ++i) {
+		if (!((op & STACK_OPERAND__) & (i + 1)))
 			continue;
 		switch (op & STACK_OPERATOR__) {
 			case STACK_OP_SWAP__:
