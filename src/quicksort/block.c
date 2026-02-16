@@ -59,7 +59,7 @@ blk_move(state_t* state, enum blk_dest from, enum blk_dest to)
 	const unsigned int id = (from << 2) | to;
 	assert(id < 16);
 	for (size_t i = 0; table[id][i] != STACK_OP_NOP; ++i)
-		state_op(state, table[id][i]);
+		state_op(state, table[id][i], 1);
 }
 
 /* --- Small sort --- */
@@ -118,10 +118,10 @@ blk_sort_2(state_t* state, blk_t blk)
 	const int rank = blk_rank(state, blk);
 	assert(rank == 0 || rank == 1);
 	for (size_t i = 0; table[blk.dest][rank][i] != STACK_OP_NOP; ++i)
-		state_op(state, table[blk.dest][rank][i]);
+		state_op(state, table[blk.dest][rank][i], 1);
 }
 
-/** Move a block of size 3 on A_TOP, sorted */
+/** Move a block of size 3 to A_TOP, sorted */
 static inline void
 blk_sort_3(state_t* state, blk_t blk)
 {
@@ -166,16 +166,17 @@ blk_sort_3(state_t* state, blk_t blk)
 	const int rank = blk_rank(state, blk);
 	assert(rank < 6);
 	for (size_t i = 0; table[blk.dest][rank][i] != STACK_OP_NOP; ++i)
-		state_op(state, table[blk.dest][rank][i]);
+		state_op(state, table[blk.dest][rank][i], 1);
 }
 
+/* --- Quicksort --- */
 static inline split_t
 blk_split(state_t *state, blk_t blk, int p1, int p2)
 {
 	split_t split = {
 		.top = { .size = 0, .dest = blk.dest == BLK_B_BOT ? BLK_B_TOP : BLK_B_BOT},
-		.mid = { .size = 0, .dest = (blk.dest & BLK_SEL__) == BLK_B__ ? BLK_A_TOP : BLK_B_TOP},
-		.bot = { .size = 0, .dest = blk.dest == BLK_A_TOP ? BLK_A_TOP : BLK_A_BOT},
+		.mid = { .size = 0, .dest = (blk.dest & BLK_SEL__) == BLK_B__ ? BLK_A_BOT : BLK_B_TOP},
+		.bot = { .size = 0, .dest = blk.dest == BLK_A_TOP ? BLK_A_BOT : BLK_A_TOP},
 	};
 
 	while (blk.size)
@@ -247,7 +248,7 @@ sort_quicksort(state_t* state)
 	assert(state->sb.size == 0);
 	assert(state->sa.size == state->sa.capacity);
 
-	// Create blocks
+	// Create block
 	const blk_t blk = { .dest = BLK_A_TOP, .size = state->sa.size };
 	quicksort_impl(state, blk);
 }

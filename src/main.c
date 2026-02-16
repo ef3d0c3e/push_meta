@@ -1,4 +1,5 @@
 #include <quicksort/quicksort.h>
+#include <optimizer/optimizer.h>
 #include <stdio.h>
 
 int
@@ -25,6 +26,12 @@ main(int ac, char** av)
 	assert(stack_is_sorted(&state.sa));
 
 	printf("Base sort in `%zu' instructions.\n", state.saves_size - 1);
+
+	optimizer_conf_t cfg = {
+		.search_width = 1000,
+		.search_depth = 4,
+	};
+	optimize(&state, cfg);
 
 	state_destroy(&state);
 	return 0;

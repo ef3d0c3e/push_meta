@@ -123,6 +123,9 @@ enum stack_op
 	STACK_OP_NOP = 0b10100,
 };
 
+const char*
+op_name(enum stack_op op);
+
 typedef struct state_t state_t;
 
 /**
@@ -186,7 +189,9 @@ state_destroy(state_t *state);
 state_t
 state_bifurcate(const state_t* state, size_t history);
 void
-state_op(state_t* state, enum stack_op op);
+state_undo(state_t* state);
+void
+state_op(state_t* state, enum stack_op op, int print);
 
 static void
 ps(const state_t* s)
