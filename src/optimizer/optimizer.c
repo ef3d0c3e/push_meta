@@ -105,13 +105,12 @@ backtrack(const state_t* orig_state, /* Original state */
 		}
 
 		// Evaluate instruction
-		//printf("op  = %s\n", op_name(ops[i]));
 		skip_data->cur_cost += ops[i] != STACK_OP_NOP;
 		state_op(state, ops[i], 0);
 		const size_t skip = find_future(orig_state, state, cfg);
 
 		// Update if better than current skip
-		if (skip_data->cur_cost < skip && skip > 0) {
+		if (skip >= skip_data->cur_cost && skip - skip_data->cur_cost >= skip_data->value) {
 			skip_data->skip = skip;
 			skip_data->len = depth;
 			skip_data->value = skip - skip_data->cur_cost;
@@ -120,7 +119,7 @@ backtrack(const state_t* orig_state, /* Original state */
 		}
 
 		// Recurse
-		if (depth < cfg->search_depth)
+		if (depth < cfg->search_depth && ops[i] != STACK_OP_NOP)
 			backtrack(orig_state, state, start, cfg, depth + 1, skip_data);
 		state_undo(state);
 		skip_data->cur_cost -= ops[i] != STACK_OP_NOP;
@@ -131,6 +130,7 @@ void
 optimize(const state_t* state, optimizer_conf_t cfg)
 {
 	skip_data_t* skip_data = skip_data_new(state, &cfg);
+	// Compute skip_data
 	for (size_t i = 0; i < state->saves_size; ++i) {
 		skip_data_t *const data = (skip_data_t *)((char*)skip_data + (sizeof(skip_data_t) + cfg.search_depth * sizeof(enum stack_op)) * i);
 		
@@ -139,16 +139,27 @@ optimize(const state_t* state, optimizer_conf_t cfg)
 		backtrack(state, &bi, i, &cfg, 1, data);
 		state_destroy(&bi);
 
-		size_t value = data->skip;
-		for (size_t j = 0; j < data->len; ++j)
-		{
-			value -= data->ops[j] != STACK_OP_NOP;
-		}
-		printf("Found skip at %zu: %zu %zu value=%zu\n", i, data->skip, data->len, value);
+		printf("Found skip at %zu: %zu %zu value=%zu\n", i, data->skip, data->len, data->value);
 		for (size_t j = 0; j < data->len; ++j)
 		{
 			printf("%s\n", op_name(data->ops[j]));
 		}
 	}
+
+	// Find the best walk
+	//state_t best = state_bifurcate(state, 0);
+	size_t *jumps = xmalloc(sizeof(size_t) * state->saves_size);
+	size_t jlen = 0;
+	size_t position = 0;
+
+	//for (size_t i = 0; i < state->saves_size; ++i)
+	//{
+	//	skip_data_t *const data = (skip_data_t *)((char*)skip_data + (sizeof(skip_data_t) + cfg.search_depth * sizeof(enum stack_op)) * i);
+
+	//	// Value of each jump
+	//	data->value + 1
+	//}
+	free(jumps);
+
 	free(skip_data);
 }
