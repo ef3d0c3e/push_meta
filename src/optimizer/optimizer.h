@@ -10,7 +10,7 @@ typedef struct
 	size_t search_depth;
 } optimizer_conf_t;
 
-void
+state_t
 optimize(const state_t* state, optimizer_conf_t cfg);
 
 #endif // OPTIMIZER_H

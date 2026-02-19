@@ -67,6 +67,7 @@ enum stack_op
 	STACK_OP_REV_ROTATE__ = 0b10000,
 	/**
 	 * @brief No-Operation
+	 * Valid for operands `~(A|B)`
 	 */
 	STACK_OP_NOP__ = 0b10100,
 	/**
@@ -120,7 +121,7 @@ enum stack_op
 	/**
 	 * @brief Does nothing
 	 */
-	STACK_OP_NOP = 0b10100,
+	STACK_OP_NOP = STACK_OP_NOP__,
 };
 
 const char*

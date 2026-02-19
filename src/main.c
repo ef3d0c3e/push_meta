@@ -14,6 +14,7 @@ main(int ac, char** av)
 	for (int i = 1; i < ac; ++i) {
 		state.sa.data[state.sa.size++] = atoi(av[i]);
 	}
+	state_op(&state, STACK_OP_NOP, 0);
 
 	sort_quicksort(&state);
 	assert(state.sb.size == 0);
@@ -29,10 +30,11 @@ main(int ac, char** av)
 
 	optimizer_conf_t cfg = {
 		.search_width = 1000,
-		.search_depth = 4,
+		.search_depth = 2,
 	};
-	optimize(&state, cfg);
+	state_t optimized = optimize(&state, cfg);
 
+	state_destroy(&optimized);
 	state_destroy(&state);
 	return 0;
 }
