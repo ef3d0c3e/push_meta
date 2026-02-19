@@ -45,13 +45,34 @@ typedef struct
 	enum blk_dest dest;
 } blk_t;
 
-typedef struct {
+int
+blk_value(const state_t* state, enum blk_dest blk, size_t pos);
+
+typedef struct
+{
 	blk_t top;
 	blk_t mid;
 	blk_t bot;
 } split_t;
 
+split_t
+blk_split(state_t* state, blk_t blk, int p1, int p2);
+
+typedef struct
+{
+	size_t search_depth;
+
+	unsigned nm_max_iters;  /* Maximum number of iterations before giving up/convergance */
+	float nm_tol;           /* Simplex radius tolerance in normalized [0,1] space, e.g. 1e-3f */
+	float nm_initial_scale; /* Initial simplex scale (fraction of [0,1]), e.g. 0.05f */
+	size_t nm_final_radius; /* Final search radius */
+} quicksort_config_t;
+
 void
-sort_quicksort(state_t *state);
+quicksort_pivots(const quicksort_config_t* cfg, const state_t* state, blk_t blk, int* pivots);
+void
+quicksort_impl(const quicksort_config_t* cfg, state_t* state, blk_t blk);
+void
+sort_quicksort(const quicksort_config_t* cfg, state_t* state);
 
 #endif // QUICKSORT_H

@@ -13,7 +13,6 @@ enum
 	OPS_LEN = sizeof(ops) / sizeof(ops[0])
 };
 
-#pragma GCC optimize ("O3")
 static inline size_t
 sz_min(size_t a, size_t b)
 {
@@ -79,6 +78,104 @@ skip_data_new(const state_t* state, const optimizer_conf_t* cfg)
 	return data;
 }
 
+static inline int
+should_prune(const state_t* state, size_t depth, enum stack_op op, enum stack_op* cur_ops)
+{
+	// Forbid illegal ops
+	switch (op) {
+		case STACK_OP_SA:
+			if (state->sa.size < 2)
+				return 1;
+			break;
+		case STACK_OP_SB:
+			if (state->sb.size < 2)
+				return 1;
+			break;
+		case STACK_OP_SS:
+			if (state->sa.size < 2 || state->sb.size < 2)
+				return 1;
+			break;
+		case STACK_OP_PA:
+			if (state->sb.size == 0)
+				return 1;
+			break;
+		case STACK_OP_PB:
+			if (state->sa.size == 0)
+				return 1;
+			break;
+		case STACK_OP_RA:
+		case STACK_OP_RRA:
+			if (state->sa.size < 2)
+				return 1;
+			break;
+		case STACK_OP_RB:
+		case STACK_OP_RRB:
+			if (state->sb.size < 2)
+				return 1;
+			break;
+		case STACK_OP_RR:
+		case STACK_OP_RRR:
+			if (state->sa.size < 2 || state->sb.size < 2)
+				return 1;
+			break;
+		default:
+			break;
+	}
+
+	// Forbid no-op
+	if (depth > 1) {
+		switch (cur_ops[depth - 2]) {
+			case STACK_OP_SA:
+				if (op == STACK_OP_SA)
+					return 1;
+				break;
+			case STACK_OP_SB:
+				if (op == STACK_OP_SB)
+					return 1;
+				break;
+			case STACK_OP_SS:
+				if (op == STACK_OP_SS)
+					return 1;
+				break;
+			case STACK_OP_PA:
+				if (op == STACK_OP_PB)
+					return 1;
+				break;
+			case STACK_OP_PB:
+				if (op == STACK_OP_PA)
+					return 1;
+				break;
+			case STACK_OP_RA:
+				if (op == STACK_OP_RRA)
+					return 1;
+				break;
+			case STACK_OP_RB:
+				if (op == STACK_OP_RRB)
+					return 1;
+				break;
+			case STACK_OP_RR:
+				if (op == STACK_OP_RRR)
+					return 1;
+				break;
+			case STACK_OP_RRA:
+				if (op == STACK_OP_RA)
+					return 1;
+				break;
+			case STACK_OP_RRB:
+				if (op == STACK_OP_RB)
+					return 1;
+				break;
+			case STACK_OP_RRR:
+				if (op == STACK_OP_RRB)
+					return 1;
+				break;
+			default:
+				break;
+		}
+	}
+	return 0;
+}
+
 static inline void
 backtrack(const state_t* orig_state,   /* Original state */
           state_t* state,              /* Bifurcated state */
@@ -91,45 +188,8 @@ backtrack(const state_t* orig_state,   /* Original state */
 	// Try all instructions
 	for (size_t i = 0; i < OPS_LEN; ++i) {
 		// Skip impossible instructions
-		switch (ops[i]) {
-			case STACK_OP_SA:
-				if (state->sa.size < 2)
-					continue;
-				break;
-			case STACK_OP_SB:
-				if (state->sb.size < 2)
-					continue;
-				break;
-			case STACK_OP_SS:
-				if (state->sa.size < 2 || state->sb.size < 2)
-					continue;
-				break;
-			case STACK_OP_PA:
-				if (state->sb.size == 0)
-					continue;
-				break;
-			case STACK_OP_PB:
-				if (state->sa.size == 0)
-					continue;
-				break;
-			case STACK_OP_RA:
-			case STACK_OP_RRA:
-				if (state->sa.size < 2)
-					continue;
-				break;
-			case STACK_OP_RB:
-			case STACK_OP_RRB:
-				if (state->sb.size < 2)
-					continue;
-				break;
-			case STACK_OP_RR:
-			case STACK_OP_RRR:
-				if (state->sa.size < 2 || state->sb.size < 2)
-					continue;
-				break;
-			default:
-				break;
-		}
+		if (should_prune(state, depth, ops[i], cur_ops))
+			continue;
 
 		// Evaluate instruction
 		skip_data->cur_cost += ops[i] != STACK_OP_NOP;
@@ -241,8 +301,11 @@ state_t
 optimize(const state_t* state, optimizer_conf_t cfg)
 {
 	skip_data_t* skip_data = skip_data_new(state, &cfg);
+
 	// Compute skip_data
-	for (size_t i = 0; i + 1 < state->saves_size; ++i) {
+	size_t i;
+#pragma omp parallel for schedule(dynamic) shared(state, cfg, skip_data) private(i)
+	for (i = 0; i < state->saves_size - 1; ++i) {
 		skip_data_t* const data = (skip_data_t*)((char*)skip_data + i * skip_data_stride(&cfg));
 
 		enum stack_op* ops = xmalloc(sizeof(enum stack_op) * cfg.search_depth);
@@ -276,8 +339,9 @@ optimize(const state_t* state, optimizer_conf_t cfg)
 	enum stack_op* ops = build_optimal_walk(state, skip_data, &cfg, &ops_count);
 
 	state_t final = state_bifurcate(state, state->saves_size > 1 ? 1 : 0);
+	final.op_count = 0;
 	for (size_t i = 0; i < ops_count; ++i) {
-		// printf("op=%s\n", op_name(ops[i]));
+		//printf("op=%s\n", op_name(ops[i]));
 		if (ops[i] != STACK_OP_NOP)
 			state_op(&final, ops[i]);
 	}

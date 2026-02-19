@@ -1,7 +1,7 @@
 #include <quicksort/quicksort.h>
 #include <stdio.h>
 
-static inline int
+inline int
 blk_value(const state_t* state, enum blk_dest blk, size_t pos)
 {
 	switch (blk) {
@@ -170,7 +170,7 @@ blk_sort_3(state_t* state, blk_t blk)
 }
 
 /* --- Quicksort --- */
-static inline split_t
+split_t
 blk_split(state_t *state, blk_t blk, int p1, int p2)
 {
 	split_t split = {
@@ -202,8 +202,8 @@ blk_split(state_t *state, blk_t blk, int p1, int p2)
 	return split;
 }
 
-static void
-quicksort_impl(state_t* state, blk_t blk)
+void
+quicksort_impl(const quicksort_config_t *cfg, state_t* state, blk_t blk)
 {
 	if (blk.size == 0)
 		return;
@@ -229,21 +229,16 @@ quicksort_impl(state_t* state, blk_t blk)
 	}
 
 	// Choose pivots & split
-	int pivots[2] = {blk_value(state, blk.dest, blk.size / 3), blk_value(state, blk.dest, 2 * blk.size / 3)};
-	if (pivots[0] > pivots[1])
-	{
-		const int tmp = pivots[0];
-		pivots[0] = pivots[1];
-		pivots[1] = tmp;
-	}
+	int pivots[2];
+	quicksort_pivots(cfg, state, blk, pivots);
 	const split_t split = blk_split(state, blk, pivots[0], pivots[1]);
-	quicksort_impl(state, split.bot);
-	quicksort_impl(state, split.mid);
-	quicksort_impl(state, split.top);
+	quicksort_impl(cfg, state, split.bot);
+	quicksort_impl(cfg, state, split.mid);
+	quicksort_impl(cfg, state, split.top);
 }
 
 void
-sort_quicksort(state_t* state)
+sort_quicksort(const quicksort_config_t *cfg, state_t* state)
 {
 	assert(state->sb.size == 0);
 	assert(state->sa.size == state->sa.capacity);
@@ -254,5 +249,5 @@ sort_quicksort(state_t* state)
 
 	// Create block
 	const blk_t blk = { .dest = BLK_A_TOP, .size = state->sa.size };
-	quicksort_impl(state, blk);
+	quicksort_impl(cfg, state, blk);
 }

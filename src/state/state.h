@@ -181,6 +181,9 @@ typedef struct state_t
 	size_t saves_size;
 	size_t saves_capacity;
 	size_t bifurcate_point;
+
+	size_t op_count;
+	size_t search_depth;
 } state_t;
 
 state_t
@@ -195,20 +198,10 @@ void
 state_op_raw(state_t* state, enum stack_op op);
 void
 state_undo(state_t* state, enum stack_op op);
+state_t
+state_clone(const state_t *state);
 
-static void
-ps(const state_t* s)
-{
-	printf(" A | B\n");
-	for (size_t i = 0; i < s->sa.size || i < s->sb.size; ++i) {
-		if (i < s->sa.size)
-			printf("%-3d|", s->sa.data[i]);
-		else
-			printf("   |");
-		if (i < s->sb.size)
-			printf("%3d", s->sb.data[i]);
-		printf("\n");
-	}
-}
+void
+print_state(const state_t* s);
 
 #endif // STATE_H

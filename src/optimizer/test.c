@@ -8,7 +8,11 @@ static inline void test(optimizer_conf_t cfg, const int *array, size_t size)
 	memcpy(state.sa.data, array, sizeof(int) * size);
 	state.sa.size = size;
 
-	sort_quicksort(&state);
+	quicksort_config_t qcfg = {
+		.search_depth = 0,
+	};
+
+	sort_quicksort(&qcfg, &state);
 	assert(state.sa.size == size);
 	assert(state.sb.size == 0);
 	assert(stack_is_sorted(&state.sa));
@@ -68,7 +72,7 @@ optimizer_test(void)
 	};
 
 	optimizer_conf_t cfg = {
-		.search_depth = 3,
+		.search_depth = 5,
 		.search_width = 1000,
 	};
 	for (size_t i = 0; i < sizeof(perms_2)/sizeof(perms_2[0]); ++i)

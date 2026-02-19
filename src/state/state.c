@@ -72,6 +72,8 @@ state_new(size_t capacity)
 		.saves = xmalloc(sizeof(save_t) * 16),
 		.saves_capacity = 16,
 		.saves_size = 0,
+		.op_count = 0,
+		.search_depth = 0,
 	};
 }
 
@@ -89,6 +91,30 @@ state_destroy(state_t* state)
 }
 
 state_t
+state_clone(const state_t *state)
+{
+	assert(state->sa.capacity == state->sb.capacity);
+	assert(state->sa.size + state->sb.size == state->sa.capacity);
+
+	state_t new = {
+		.sa = stack_new(state->sa.capacity),
+		.sb = stack_new(state->sb.capacity),
+		.bifurcate_point = SIZE_MAX,
+		.saves = NULL,
+		.saves_capacity = 0,
+		.saves_size = 0,
+		.op_count = state->op_count,
+		.search_depth = state->search_depth,
+	};
+	memcpy(new.sa.data, state->sa.data, sizeof(int) * state->sa.size);
+	new.sa.size = state->sa.size;
+	memcpy(new.sb.data, state->sb.data, sizeof(int) * state->sb.size);
+	new.sb.size = state->sb.size;
+
+	return new;
+}
+
+state_t
 state_bifurcate(const state_t* state, size_t history)
 {
 	assert(state->sa.capacity == state->sb.capacity);
@@ -102,6 +128,8 @@ state_bifurcate(const state_t* state, size_t history)
 		.saves = xmalloc(sizeof(save_t) * history),
 		.saves_capacity = history,
 		.saves_size = history,
+		.op_count = state->op_count,
+		.search_depth = state->search_depth,
 	};
 	memcpy(new.saves, state->saves, history * sizeof(save_t));
 	const save_t* save = &state->saves[history > 0 ? history - 1 : 0];
@@ -118,7 +146,7 @@ state_add_save(state_t* state, enum stack_op op)
 	save_t save = save_new(state);
 	save.op = op;
 	if (state->saves_size >= state->saves_capacity) {
-		const size_t capacity = state->saves_capacity * 2 + !state->saves_capacity * 16;
+		const size_t capacity = state->saves_capacity * 2ull + !state->saves_capacity * 16ull;
 		state->saves = realloc(state->saves, capacity * sizeof(save_t));
 		state->saves_capacity = capacity;
 	}
@@ -143,7 +171,8 @@ state_op(state_t* state, enum stack_op op)
 {
 	state_op_raw(state, op);
 
-	state_add_save(state, op);
+	if (state->bifurcate_point == 0)
+		state_add_save(state, op);
 }
 
 __attribute__((always_inline)) __attribute__((hot)) __attribute__((flatten)) inline void
@@ -152,6 +181,7 @@ state_op_raw(state_t* state, enum stack_op op)
 	assert(state->sa.capacity == state->sb.capacity);
 	assert(state->sa.size + state->sb.size == state->sa.capacity);
 
+	++state->op_count;
 	int tmp;
 	stack_t* const s[2] = { &state->sa, &state->sb };
 	for (unsigned int i = 0; i < 2; ++i) {
@@ -212,6 +242,7 @@ state_op_raw(state_t* state, enum stack_op op)
 __attribute__((always_inline)) __attribute__((hot)) __attribute__((flatten)) inline void
 state_undo(state_t* state, enum stack_op op)
 {
+	assert(state->op_count != 0);
 	switch (op) {
 		case STACK_OP_PA:
 			op = STACK_OP_PB;
@@ -240,5 +271,21 @@ state_undo(state_t* state, enum stack_op op)
 		default:
 			break;
 	}
+	--state->op_count;
 	state_op_raw(state, op);
+}
+
+void
+print_state(const state_t* s)
+{
+	printf(" A | B\n");
+	for (size_t i = 0; i < s->sa.size || i < s->sb.size; ++i) {
+		if (i < s->sa.size)
+			printf("%-3d|", s->sa.data[i]);
+		else
+			printf("   |");
+		if (i < s->sb.size)
+			printf("%3d", s->sb.data[i]);
+		printf("\n");
+	}
 }
