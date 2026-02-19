@@ -13,6 +13,7 @@ evaluate_pivots(const quicksort_config_t* cfg, const state_t* state, blk_t blk, 
 	state_t new = state_clone(state);
 
 	new.search_depth += 1;
+	static size_t count = 0;
 
 	// Split & Evaluate
 	const split_t split = blk_split(&new, blk, p1, p2);
@@ -201,8 +202,8 @@ optimize_pivots(const quicksort_config_t* cfg,
 		if (xr_i2 < xr_i1)
 			xr_i2 = xr_i1;
 
-		const size_t fr = evaluate_index_cached(
-		  cfg, state, blk, tmp_buf, xr_i1, xr_i2, cache, n, best);
+		const size_t fr =
+		  evaluate_index_cached(cfg, state, blk, tmp_buf, xr_i1, xr_i2, cache, n, best);
 		// Expansion
 		if (fr < fvals[0]) {
 			float xe[2] = { centroid[0] + gamma * (xr[0] - centroid[0]),
@@ -215,8 +216,8 @@ optimize_pivots(const quicksort_config_t* cfg,
 			size_t xe_i2 = f_to_index(xe_f2, n);
 			if (xe_i2 < xe_i1)
 				xe_i2 = xe_i1;
-			size_t fe = evaluate_index_cached(
-			  cfg, state, blk, tmp_buf, xe_i1, xe_i2, cache, n, best);
+			size_t fe =
+			  evaluate_index_cached(cfg, state, blk, tmp_buf, xe_i1, xe_i2, cache, n, best);
 
 			if (fe < fr) {
 				/* accept expansion */
@@ -251,8 +252,8 @@ optimize_pivots(const quicksort_config_t* cfg,
 				size_t xc_i2 = f_to_index(xc_f2, n);
 				if (xc_i2 < xc_i1)
 					xc_i2 = xc_i1;
-				const size_t fc = evaluate_index_cached(
-				  cfg, state, blk, tmp_buf, xc_i1, xc_i2, cache, n, best);
+				const size_t fc =
+				  evaluate_index_cached(cfg, state, blk, tmp_buf, xc_i1, xc_i2, cache, n, best);
 				if (fc <= fr) {
 					simplex[2][0] = xc[0];
 					simplex[2][1] = xc[1];
@@ -292,8 +293,8 @@ optimize_pivots(const quicksort_config_t* cfg,
 				size_t xc_i2 = f_to_index(xc_f2, n);
 				if (xc_i2 < xc_i1)
 					xc_i2 = xc_i1;
-				const size_t fc = evaluate_index_cached(
-				  cfg, state, blk, tmp_buf, xc_i1, xc_i2, cache, n, best);
+				const size_t fc =
+				  evaluate_index_cached(cfg, state, blk, tmp_buf, xc_i1, xc_i2, cache, n, best);
 				if (fc < fvals[2]) {
 					simplex[2][0] = xc[0];
 					simplex[2][1] = xc[1];
@@ -345,21 +346,25 @@ optimize_pivots(const quicksort_config_t* cfg,
 	if (radius != 0) {
 		size_t best = evaluate_index_cached(
 		  cfg, state, blk, tmp_buf, best_i1, best_i2, cache, n, fvals[best_idx]);
-		for (int di1 = -radius; di1 <= radius; ++di1) {
-			for (int di2 = -radius; di2 <= radius; ++di2) {
-				if ((size_t)-di1 > best_i1 || (size_t)-di2 > best_i2)
-					continue;
-				const size_t ni1 = (size_t)((int)best_i1 + di1);
-				const size_t ni2 = (size_t)((int)best_i2 + di2);
-				if (ni1 >= n || ni2 >= n || ni2 < ni1)
-					continue;
-				const size_t c = evaluate_index_cached(
-				  cfg, state, blk, tmp_buf, ni1, ni2, cache, n, best);
-				if (c < best) {
-					best = c;
-					final_i1 = ni1;
-					final_i2 = ni2;
-				}
+		const int N = (2 * radius + 1) * (2 * radius + 1);
+		int i;
+//#pragma omp parallel for shared(best, cache, final_i1, final_i2, state, tmp_buf, blk, cfg, n) private(i) schedule(static)
+		for (i = 0; i < N; ++i) {
+			const int di1 = i / (2 * radius + 1) - radius;
+			const int di2 = i % (2 * radius + 1) - radius;
+			if ((size_t)-di1 > best_i1 || (size_t)-di2 > best_i2)
+				continue;
+			const size_t ni1 = (size_t)((int)best_i1 + di1);
+			const size_t ni2 = (size_t)((int)best_i2 + di2);
+			if (ni1 >= n || ni2 >= n || ni2 < ni1)
+				continue;
+			const size_t c =
+			  evaluate_index_cached(cfg, state, blk, tmp_buf, ni1, ni2, cache, n, SIZE_MAX);
+//#pragma omp critical
+			if (c < best) {
+				best = c;
+				final_i1 = ni1;
+				final_i2 = ni2;
 			}
 		}
 	}

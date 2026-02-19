@@ -10,6 +10,11 @@ static inline void test(optimizer_conf_t cfg, const int *array, size_t size)
 
 	quicksort_config_t qcfg = {
 		.search_depth = 0,
+
+		.nm_max_iters = 50,
+		.nm_tol = 1e-3f,
+		.nm_initial_scale = 0.5f,
+		.nm_final_radius = 2,
 	};
 
 	sort_quicksort(&qcfg, &state);

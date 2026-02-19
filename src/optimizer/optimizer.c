@@ -194,7 +194,7 @@ backtrack(const state_t* orig_state,   /* Original state */
 		// Evaluate instruction
 		skip_data->cur_cost += ops[i] != STACK_OP_NOP;
 		cur_ops[depth - 1] = ops[i];
-		state_op_raw(state, ops[i]);
+		state_op(state, ops[i]);
 		size_t search_from = start + depth;
 		size_t skip = find_future(orig_state, state, cfg, search_from);
 

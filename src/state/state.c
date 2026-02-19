@@ -146,7 +146,7 @@ state_add_save(state_t* state, enum stack_op op)
 	save_t save = save_new(state);
 	save.op = op;
 	if (state->saves_size >= state->saves_capacity) {
-		const size_t capacity = state->saves_capacity * 2ull + !state->saves_capacity * 16ull;
+		const size_t capacity = state->saves_capacity * 2ul + !state->saves_capacity * 16ul;
 		state->saves = realloc(state->saves, capacity * sizeof(save_t));
 		state->saves_capacity = capacity;
 	}
@@ -166,16 +166,7 @@ op_name(enum stack_op op)
 	return table[op];
 }
 
-void
-state_op(state_t* state, enum stack_op op)
-{
-	state_op_raw(state, op);
-
-	if (state->bifurcate_point == 0)
-		state_add_save(state, op);
-}
-
-__attribute__((always_inline)) __attribute__((hot)) __attribute__((flatten)) inline void
+inline void
 state_op_raw(state_t* state, enum stack_op op)
 {
 	assert(state->sa.capacity == state->sb.capacity);
@@ -239,7 +230,16 @@ state_op_raw(state_t* state, enum stack_op op)
 	}
 }
 
-__attribute__((always_inline)) __attribute__((hot)) __attribute__((flatten)) inline void
+void
+state_op(state_t* state, enum stack_op op)
+{
+	state_op_raw(state, op);
+
+	if (state->bifurcate_point == 0)
+		state_add_save(state, op);
+}
+
+inline void
 state_undo(state_t* state, enum stack_op op)
 {
 	assert(state->op_count != 0);
@@ -273,6 +273,7 @@ state_undo(state_t* state, enum stack_op op)
 	}
 	--state->op_count;
 	state_op_raw(state, op);
+	--state->op_count;
 }
 
 void
