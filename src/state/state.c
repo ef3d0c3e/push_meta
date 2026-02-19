@@ -112,24 +112,6 @@ state_bifurcate(const state_t* state, size_t history)
 	return new;
 }
 
-void
-state_undo(state_t* state)
-{
-	assert(state->saves_size != 0);
-	save_t* const save = &state->saves[state->saves_size > 1 ? state->saves_size - 2 : 0];
-
-	state->sa.data = state->sa.start + state->sa.capacity;
-	memcpy(state->sa.data, save->data, save->sz_a * sizeof(int));
-	state->sa.size = save->sz_a;
-
-	state->sb.data = state->sb.start + state->sb.capacity;
-	memcpy(state->sb.data, save->data + save->sz_a, save->sz_b * sizeof(int));
-	state->sb.size = save->sz_b;
-
-	if (state->saves_size > 1)
-		save_destroy(&state->saves[--state->saves_size]);
-}
-
 static void
 state_add_save(state_t* state, enum stack_op op)
 {
@@ -158,6 +140,14 @@ op_name(enum stack_op op)
 
 void
 state_op(state_t* state, enum stack_op op)
+{
+	state_op_raw(state, op);
+
+	state_add_save(state, op);
+}
+
+__attribute__((always_inline)) __attribute__((hot)) __attribute__((flatten)) inline void
+state_op_raw(state_t* state, enum stack_op op)
 {
 	assert(state->sa.capacity == state->sb.capacity);
 	assert(state->sa.size + state->sb.size == state->sa.capacity);
@@ -217,6 +207,38 @@ state_op(state_t* state, enum stack_op op)
 				__builtin_unreachable();
 		}
 	}
+}
 
-	state_add_save(state, op);
+__attribute__((always_inline)) __attribute__((hot)) __attribute__((flatten)) inline void
+state_undo(state_t* state, enum stack_op op)
+{
+	switch (op) {
+		case STACK_OP_PA:
+			op = STACK_OP_PB;
+			break;
+		case STACK_OP_PB:
+			op = STACK_OP_PA;
+			break;
+		case STACK_OP_RA:
+			op = STACK_OP_RRA;
+			break;
+		case STACK_OP_RB:
+			op = STACK_OP_RRB;
+			break;
+		case STACK_OP_RR:
+			op = STACK_OP_RRR;
+			break;
+		case STACK_OP_RRA:
+			op = STACK_OP_RA;
+			break;
+		case STACK_OP_RRB:
+			op = STACK_OP_RB;
+			break;
+		case STACK_OP_RRR:
+			op = STACK_OP_RR;
+			break;
+		default:
+			break;
+	}
+	state_op_raw(state, op);
 }

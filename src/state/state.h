@@ -190,9 +190,11 @@ state_destroy(state_t *state);
 state_t
 state_bifurcate(const state_t* state, size_t history);
 void
-state_undo(state_t* state);
-void
 state_op(state_t* state, enum stack_op op);
+void
+state_op_raw(state_t* state, enum stack_op op);
+void
+state_undo(state_t* state, enum stack_op op);
 
 static void
 ps(const state_t* s)

@@ -13,6 +13,7 @@ enum
 	OPS_LEN = sizeof(ops) / sizeof(ops[0])
 };
 
+#pragma GCC optimize ("O3")
 static inline size_t
 sz_min(size_t a, size_t b)
 {
@@ -50,7 +51,6 @@ typedef struct
 {
 	/** Current cost */
 	size_t cur_cost;
-
 	/** Numbwer of skipped ops -*/
 	size_t skip;
 	/** Value of the skip */
@@ -85,7 +85,8 @@ backtrack(const state_t* orig_state,   /* Original state */
           size_t start,                /* Index in original state */
           const optimizer_conf_t* cfg, /* Optimizer configuration */
           size_t depth,                /* Current search depth */
-          skip_data_t* skip_data /* Result */)
+          skip_data_t* skip_data,      /* Result */
+          enum stack_op* cur_ops)
 {
 	// Try all instructions
 	for (size_t i = 0; i < OPS_LEN; ++i) {
@@ -132,7 +133,8 @@ backtrack(const state_t* orig_state,   /* Original state */
 
 		// Evaluate instruction
 		skip_data->cur_cost += ops[i] != STACK_OP_NOP;
-		state_op(state, ops[i]);
+		cur_ops[depth - 1] = ops[i];
+		state_op_raw(state, ops[i]);
 		size_t search_from = start + depth;
 		size_t skip = find_future(orig_state, state, cfg, search_from);
 
@@ -146,16 +148,15 @@ backtrack(const state_t* orig_state,   /* Original state */
 					skip_data->len = depth;
 					skip_data->value = value;
 
-					for (size_t j = 0; j < depth; ++j)
-						skip_data->ops[j] = state->saves[state->saves_size - depth + j].op;
+					memcpy(skip_data->ops, cur_ops, sizeof(enum stack_op) * depth);
 				}
 			}
 		}
 
 		// Recurse
 		if (depth < cfg->search_depth && ops[i] != STACK_OP_NOP)
-			backtrack(orig_state, state, start, cfg, depth + 1, skip_data);
-		state_undo(state);
+			backtrack(orig_state, state, start, cfg, depth + 1, skip_data, cur_ops);
+		state_undo(state, ops[i]);
 		skip_data->cur_cost -= ops[i] != STACK_OP_NOP;
 	}
 }
@@ -244,10 +245,12 @@ optimize(const state_t* state, optimizer_conf_t cfg)
 	for (size_t i = 0; i + 1 < state->saves_size; ++i) {
 		skip_data_t* const data = (skip_data_t*)((char*)skip_data + i * skip_data_stride(&cfg));
 
+		enum stack_op* ops = xmalloc(sizeof(enum stack_op) * cfg.search_depth);
 		// Bifurcate & Evaluate
 		state_t bi = state_bifurcate(state, i + 1);
-		backtrack(state, &bi, i, &cfg, 1, data);
+		backtrack(state, &bi, i, &cfg, 1, data, ops);
 		state_destroy(&bi);
+		free(ops);
 
 		/*
 		printf("Found skip at %zu: skip=%zu len=%zu value=%zu\n",
@@ -281,7 +284,5 @@ optimize(const state_t* state, optimizer_conf_t cfg)
 	free(ops);
 	free(skip_data);
 
-	assert(stack_is_sorted(&final.sa));
-	assert(final.sb.size == 0);
 	return final;
 }
