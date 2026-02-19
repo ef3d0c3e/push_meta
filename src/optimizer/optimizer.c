@@ -61,22 +61,22 @@ typedef struct
 	enum stack_op ops[];
 } skip_data_t;
 
-static skip_data_t*
-skip_data_new(const state_t* state, const optimizer_conf_t* cfg)
-{
-	skip_data_t* data = xmalloc(
-	  (sizeof(skip_data_t) + cfg->search_depth * sizeof(enum stack_op)) * state->saves_size);
-	bzero(data,
-	      (sizeof(skip_data_t) + cfg->search_depth * sizeof(enum stack_op)) * state->saves_size);
-	return data;
-}
-
 static inline size_t
 skip_data_stride(const optimizer_conf_t* cfg)
 {
 	return (offsetof(skip_data_t, ops) + cfg->search_depth * sizeof(enum stack_op) +
 	        _Alignof(skip_data_t) - 1) &
 	       ~(_Alignof(skip_data_t) - 1);
+}
+
+static skip_data_t*
+skip_data_new(const state_t* state, const optimizer_conf_t* cfg)
+{
+	const size_t size = skip_data_stride(cfg) * state->saves_size;
+
+	skip_data_t* data = xmalloc(size);
+	bzero(data, size);
+	return data;
 }
 
 static inline void
@@ -132,7 +132,7 @@ backtrack(const state_t* orig_state,   /* Original state */
 
 		// Evaluate instruction
 		skip_data->cur_cost += ops[i] != STACK_OP_NOP;
-		state_op(state, ops[i], 0);
+		state_op(state, ops[i]);
 		size_t search_from = start + depth;
 		size_t skip = find_future(orig_state, state, cfg, search_from);
 
@@ -175,7 +175,7 @@ build_optimal_walk(const state_t* orig_state,
 	const size_t stride = skip_data_stride(cfg);
 	const size_t n = orig_state->saves_size - 1;
 	*ops_count_out = 0;
-	if (n == 0 || skip_data_base == NULL || cfg == NULL)
+	if (orig_state->saves_size == 0 || n == 0 || skip_data_base == NULL || cfg == NULL)
 		return NULL;
 
 	size_t* dp = xmalloc((n + 1) * sizeof(size_t));
@@ -246,7 +246,6 @@ optimize(const state_t* state, optimizer_conf_t cfg)
 
 		// Bifurcate & Evaluate
 		state_t bi = state_bifurcate(state, i + 1);
-		ps(&bi);
 		backtrack(state, &bi, i, &cfg, 1, data);
 		state_destroy(&bi);
 
@@ -273,11 +272,11 @@ optimize(const state_t* state, optimizer_conf_t cfg)
 	size_t ops_count;
 	enum stack_op* ops = build_optimal_walk(state, skip_data, &cfg, &ops_count);
 
-	state_t final = state_bifurcate(state, 1);
+	state_t final = state_bifurcate(state, state->saves_size > 1 ? 1 : 0);
 	for (size_t i = 0; i < ops_count; ++i) {
 		// printf("op=%s\n", op_name(ops[i]));
 		if (ops[i] != STACK_OP_NOP)
-			state_op(&final, ops[i], 1);
+			state_op(&final, ops[i]);
 	}
 	free(ops);
 	free(skip_data);

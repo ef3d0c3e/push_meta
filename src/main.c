@@ -5,6 +5,9 @@
 int
 main(int ac, char** av)
 {
+	optimizer_test();
+	return 0;
+	/*
 	if (ac < 2) {
 		fprintf(stderr, "USAGE: %s NUMBERS\n", av[0]);
 		return 1;
@@ -37,4 +40,5 @@ main(int ac, char** av)
 	state_destroy(&optimized);
 	state_destroy(&state);
 	return 0;
+	*/
 }

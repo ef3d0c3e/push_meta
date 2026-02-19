@@ -59,7 +59,7 @@ blk_move(state_t* state, enum blk_dest from, enum blk_dest to)
 	const unsigned int id = (from << 2) | to;
 	assert(id < 16);
 	for (size_t i = 0; table[id][i] != STACK_OP_NOP; ++i)
-		state_op(state, table[id][i], 1);
+		state_op(state, table[id][i]);
 }
 
 /* --- Small sort --- */
@@ -118,7 +118,7 @@ blk_sort_2(state_t* state, blk_t blk)
 	const int rank = blk_rank(state, blk);
 	assert(rank == 0 || rank == 1);
 	for (size_t i = 0; table[blk.dest][rank][i] != STACK_OP_NOP; ++i)
-		state_op(state, table[blk.dest][rank][i], 1);
+		state_op(state, table[blk.dest][rank][i]);
 }
 
 /** Move a block of size 3 to A_TOP, sorted */
@@ -166,7 +166,7 @@ blk_sort_3(state_t* state, blk_t blk)
 	const int rank = blk_rank(state, blk);
 	assert(rank < 6);
 	for (size_t i = 0; table[blk.dest][rank][i] != STACK_OP_NOP; ++i)
-		state_op(state, table[blk.dest][rank][i], 1);
+		state_op(state, table[blk.dest][rank][i]);
 }
 
 /* --- Quicksort --- */
@@ -247,6 +247,10 @@ sort_quicksort(state_t* state)
 {
 	assert(state->sb.size == 0);
 	assert(state->sa.size == state->sa.capacity);
+	state_op(state, STACK_OP_NOP);
+	if (stack_is_sorted(&state->sa)) {
+		return;
+	}
 
 	// Create block
 	const blk_t blk = { .dest = BLK_A_TOP, .size = state->sa.size };

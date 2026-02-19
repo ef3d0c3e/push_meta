@@ -192,7 +192,7 @@ state_bifurcate(const state_t* state, size_t history);
 void
 state_undo(state_t* state);
 void
-state_op(state_t* state, enum stack_op op, int print);
+state_op(state_t* state, enum stack_op op);
 
 static void
 ps(const state_t* s)

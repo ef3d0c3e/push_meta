@@ -13,4 +13,7 @@ typedef struct
 state_t
 optimize(const state_t* state, optimizer_conf_t cfg);
 
+void
+optimizer_test(void);
+
 #endif // OPTIMIZER_H

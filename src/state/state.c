@@ -104,7 +104,7 @@ state_bifurcate(const state_t* state, size_t history)
 		.saves_size = history,
 	};
 	memcpy(new.saves, state->saves, history * sizeof(save_t));
-	const save_t* save = &state->saves[history - 1];
+	const save_t* save = &state->saves[history > 0 ? history - 1 : 0];
 	new.sa.size = save->sz_a;
 	new.sb.size = save->sz_b;
 	memcpy(new.sa.data, save->data, sizeof(int) * new.sa.size);
@@ -157,16 +157,10 @@ op_name(enum stack_op op)
 }
 
 void
-state_op(state_t* state, enum stack_op op, int print)
+state_op(state_t* state, enum stack_op op)
 {
 	assert(state->sa.capacity == state->sb.capacity);
 	assert(state->sa.size + state->sb.size == state->sa.capacity);
-
-	//if (state->saves_size == 0)
-	//	state_add_save(state, STACK_OP_NOP);
-
-	if (print)
-		printf("%s\n", op_name(op));
 
 	int tmp;
 	stack_t* const s[2] = { &state->sa, &state->sb };
