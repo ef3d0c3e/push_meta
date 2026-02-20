@@ -44,7 +44,7 @@ typedef struct
 	uint32_t random_state;
 	size_t generate;
 	int list;
-	void (*sort_method)(const quicksort_config_t* cfg, state_t* state, blk_t blk);
+	const char* method;
 } options_t;
 
 static void
@@ -85,7 +85,7 @@ main(int ac, char** av)
 		.random_state = 2043930778,
 		.generate = 0,
 		.list = 0,
-		.sort_method = quicksort_nm_impl,
+		.method = "nm",
 	};
 	for (int i = 1; i < ac;) {
 		// Show help
@@ -113,7 +113,7 @@ main(int ac, char** av)
 			}
 
 			if (!strcmp(av[i + 1], "nm") || !strcmp(av[i + 1], "Nelder-Mead")) {
-				opts.sort_method = quicksort_nm_impl;
+				opts.method = "nm";
 			} else {
 				fprintf(stderr, "Unknown sorting method `%s'\n", av[i + 1]);
 				exit(1);
@@ -166,7 +166,7 @@ main(int ac, char** av)
 	} else if (opts.generate) {
 		for (size_t i = 0; i < state_capacity; ++i) {
 			while (1) {
-				int val = ((int)random_int(&opts.random_state)) % (int)state_capacity;
+				int val = (int)(((uint32_t)random_int(&opts.random_state)) % (uint32_t)state_capacity);
 				int valid = 1;
 				for (size_t j = 0; j < state.sa.size; ++j) {
 					if (state.sa.data[j] == val) {
@@ -183,19 +183,24 @@ main(int ac, char** av)
 	} else
 		assert(0);
 
-	quicksort_config_t qcfg = {
-		.search_depth = 2,
+	// Build data
+	quicksort_data_t data;
+	if (!strcmp(opts.method, "nm"))
+		data = quicksort_nm((quicksort_nm_t){
+		  .max_depth = 3,
+		  .max_iters = 50,
+		  .tol = 0.01f,
+		  .initial_scale = 0.55f,
+		  .final_radius = 2,
+		});
+	else
+		abort();
 
-		.nm_max_iters = 50,
-		.nm_tol = 0.01f,
-		.nm_initial_scale = 0.55f,
-		.nm_final_radius = 2,
-	};
 	struct timespec start, end;
 	char time[256];
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-	sort_quicksort(&qcfg, &state, quicksort_nm_impl);
+	sort_quicksort(&data, &state);
 	clock_gettime(CLOCK_MONOTONIC_RAW, &end);
 
 	assert(state.sb.size == 0);
@@ -204,6 +209,8 @@ main(int ac, char** av)
 
 	format_time(start, end, time);
 	printf("Base sort in `%zu' instructions in %s.\n", state.saves_size - 1, time);
+
+	quicksort_write_plots(&data);
 
 	optimizer_conf_t cfg = {
 		.search_width = 1000,
@@ -217,6 +224,7 @@ main(int ac, char** av)
 	format_time(start, end, time);
 	printf("Optimized in `%zu` instructions in %s.\n", optimized.op_count, time);
 
+	quicksort_data_free(&data);
 	state_destroy(&optimized);
 	state_destroy(&state);
 

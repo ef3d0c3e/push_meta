@@ -147,7 +147,7 @@ state_add_save(state_t* state, enum stack_op op)
 	save.op = op;
 	if (state->saves_size >= state->saves_capacity) {
 		const size_t capacity = state->saves_capacity * 2ul + !state->saves_capacity * 16ul;
-		state->saves = realloc(state->saves, capacity * sizeof(save_t));
+		state->saves = xrealloc(state->saves, capacity * sizeof(save_t));
 		state->saves_capacity = capacity;
 	}
 	state->saves[state->saves_size++] = save;

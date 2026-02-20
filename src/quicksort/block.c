@@ -196,9 +196,8 @@ blk_split(state_t* state, blk_t blk, int p1, int p2)
 }
 
 void
-sort_quicksort(const quicksort_config_t* cfg,
-               state_t* state,
-               void (*sort)(const quicksort_config_t* cfg, state_t* state, blk_t blk))
+sort_quicksort(quicksort_data_t* data,
+               state_t* state)
 {
 	assert(state->sb.size == 0);
 	assert(state->sa.size == state->sa.capacity);
@@ -209,5 +208,5 @@ sort_quicksort(const quicksort_config_t* cfg,
 
 	// Create block
 	const blk_t blk = { .dest = BLK_A_TOP, .size = state->sa.size };
-	sort(cfg, state, blk);
+	data->sort(data, state, blk);
 }

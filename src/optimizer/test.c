@@ -2,22 +2,21 @@
 #include <optimizer/optimizer.h>
 #include <string.h>
 
-static inline void test(optimizer_conf_t cfg, const int *array, size_t size)
+static inline void
+test(optimizer_conf_t cfg, const int* array, size_t size)
 {
 	state_t state = state_new(size);
 	memcpy(state.sa.data, array, sizeof(int) * size);
 	state.sa.size = size;
 
-	quicksort_config_t qcfg = {
-		.search_depth = 0,
-
-		.nm_max_iters = 50,
-		.nm_tol = 1e-3f,
-		.nm_initial_scale = 0.5f,
-		.nm_final_radius = 2,
-	};
-
-	sort_quicksort(&qcfg, &state, quicksort_nm_impl);
+	quicksort_data_t data = quicksort_nm((quicksort_nm_t){
+	  .max_depth = 0,
+	  .max_iters = 50,
+	  .tol = 1e-3f,
+	  .initial_scale = 0.5f,
+	  .final_radius = 2,
+	});
+	sort_quicksort(&data, &state);
 	assert(state.sa.size == size);
 	assert(state.sb.size == 0);
 	assert(stack_is_sorted(&state.sa));
@@ -26,6 +25,7 @@ static inline void test(optimizer_conf_t cfg, const int *array, size_t size)
 	assert(optimized.sa.size == size);
 	assert(optimized.sb.size == 0);
 	assert(stack_is_sorted(&optimized.sa));
+	quicksort_data_free(&data);
 	state_destroy(&optimized);
 	state_destroy(&state);
 }
@@ -80,12 +80,12 @@ optimizer_test(void)
 		.search_depth = 5,
 		.search_width = 1000,
 	};
-	for (size_t i = 0; i < sizeof(perms_2)/sizeof(perms_2[0]); ++i)
-		test(cfg, perms_2[i], sizeof(perms_2[i])/sizeof(perms_2[i][0]));
-	for (size_t i = 0; i < sizeof(perms_3)/sizeof(perms_3[0]); ++i)
-		test(cfg, perms_3[i], sizeof(perms_3[i])/sizeof(perms_3[i][0]));
-	for (size_t i = 0; i < sizeof(perms_4)/sizeof(perms_4[0]); ++i)
-		test(cfg, perms_4[i], sizeof(perms_4[i])/sizeof(perms_4[i][0]));
-	for (size_t i = 0; i < sizeof(perms_5)/sizeof(perms_5[0]); ++i)
-		test(cfg, perms_5[i], sizeof(perms_5[i])/sizeof(perms_5[i][0]));
+	for (size_t i = 0; i < sizeof(perms_2) / sizeof(perms_2[0]); ++i)
+		test(cfg, perms_2[i], sizeof(perms_2[i]) / sizeof(perms_2[i][0]));
+	for (size_t i = 0; i < sizeof(perms_3) / sizeof(perms_3[0]); ++i)
+		test(cfg, perms_3[i], sizeof(perms_3[i]) / sizeof(perms_3[i][0]));
+	for (size_t i = 0; i < sizeof(perms_4) / sizeof(perms_4[0]); ++i)
+		test(cfg, perms_4[i], sizeof(perms_4[i]) / sizeof(perms_4[i][0]));
+	for (size_t i = 0; i < sizeof(perms_5) / sizeof(perms_5[0]); ++i)
+		test(cfg, perms_5[i], sizeof(perms_5[i]) / sizeof(perms_5[i][0]));
 }

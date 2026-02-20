@@ -108,21 +108,68 @@ typedef struct
 split_t
 blk_split(state_t* state, blk_t blk, int p1, int p2);
 
+typedef struct quicksort_data_t quicksort_data_t;
+
+/** @brief Nelder-Mead settings */
 typedef struct
 {
-	size_t search_depth;
+	size_t max_depth;    /* Maximum search depth */
+	size_t max_iters;  /* Maximum number of iterations before giving up/convergance */
+	float tol;           /* Simplex radius tolerance in normalized [0,1] space, e.g. 1e-3f */
+	float initial_scale; /* Initial simplex scale (fraction of [0,1]), e.g. 0.05f */
+	size_t final_radius; /* Final search radius */
+} quicksort_nm_t;
 
-	unsigned nm_max_iters;  /* Maximum number of iterations before giving up/convergance */
-	float nm_tol;           /* Simplex radius tolerance in normalized [0,1] space, e.g. 1e-3f */
-	float nm_initial_scale; /* Initial simplex scale (fraction of [0,1]), e.g. 0.05f */
-	size_t nm_final_radius; /* Final search radius */
-} quicksort_config_t;
+/** @brief Create quicksort data for Nelder-Mead */
+quicksort_data_t
+quicksort_nm(quicksort_nm_t);
+void
+quicksort_nm_impl(quicksort_data_t* data, state_t* state, blk_t blk);
+
+typedef enum
+{
+	/** @brief A plot of `float` */
+	PLOT_FLOAT,
+	/** @brief A plot of `size_t` */
+	PLOT_SIZE,
+} plot_value_type;
+
+/** @brief Data for plots */
+typedef struct
+{
+	/** @brief Plot description */
+	char* desc;
+	/** @brief Plot value type */
+	plot_value_type type;
+	/** @brief Data size */
+	size_t size[2];
+	/** @brief Plot data */
+	void* data;
+} quicksort_plot_t;
+
+struct quicksort_data_t
+{
+	union
+	{
+		quicksort_nm_t nm;
+	};
+	void (*sort)(quicksort_data_t*, state_t*, blk_t);
+
+	quicksort_plot_t* plots;
+	size_t plots_size;
+};
+
+/** @brief Free the quicksort data */
+void
+quicksort_data_free(quicksort_data_t *data);
+/** @brief Add a plot to @p data */
+void
+quicksort_data_add_plot(quicksort_data_t* data, quicksort_plot_t plot);
+/** @brief Write plots to files */
+void
+quicksort_write_plots(const quicksort_data_t *data);
 
 void
-quicksort_nm_impl(const quicksort_config_t* cfg, state_t* state, blk_t blk);
-void
-sort_quicksort(const quicksort_config_t* cfg,
-               state_t* state,
-               void (*sort)(const quicksort_config_t* cfg, state_t* state, blk_t blk));
+sort_quicksort(quicksort_data_t* data, state_t* state);
 
 #endif // QUICKSORT_H
