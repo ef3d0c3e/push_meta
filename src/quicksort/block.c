@@ -27,8 +27,7 @@ blk_value(const state_t* state, enum blk_dest blk, size_t pos)
 	}
 }
 
-/* Move a single value from a location to another */
-static inline void
+void
 blk_move(state_t* state, enum blk_dest from, enum blk_dest to)
 {
 	assert(((from & BLK_SEL__) == BLK_A__ && state->sa.size) ||
@@ -62,7 +61,7 @@ blk_move(state_t* state, enum blk_dest from, enum blk_dest to)
 		state_op(state, table[id][i]);
 }
 
-/* --- Small sort --- */
+/** @brief Rank a block */
 static inline int
 blk_rank(const state_t* state, blk_t blk)
 {
@@ -82,7 +81,7 @@ blk_rank(const state_t* state, blk_t blk)
 }
 
 /** Move a block of size 2 on A_TOP, sorted */
-static inline void
+void
 blk_sort_2(state_t* state, blk_t blk)
 {
 	assert(blk.size == 2);
@@ -122,7 +121,7 @@ blk_sort_2(state_t* state, blk_t blk)
 }
 
 /** Move a block of size 3 to A_TOP, sorted */
-static inline void
+void
 blk_sort_3(state_t* state, blk_t blk)
 {
 	assert(blk.size == 3);
@@ -203,41 +202,6 @@ blk_split(state_t *state, blk_t blk, int p1, int p2)
 }
 
 void
-quicksort_impl(const quicksort_config_t *cfg, state_t* state, blk_t blk)
-{
-	if (blk.size == 0)
-		return;
-
-	// Normalize direction
-	if (blk.dest == BLK_A_BOT && state->sa.size == blk.size)
-		blk.dest = BLK_A_TOP;
-	else if (blk.dest == BLK_B_BOT && state->sb.size == blk.size)
-		blk.dest = BLK_B_TOP;
-
-	// Sort manually for small blocks
-	if (blk.size == 1) {
-		blk_move(state, blk.dest, BLK_A_TOP);
-		return;
-	}
-	else if (blk.size == 2) {
-		blk_sort_2(state, blk);
-		return;
-	}
-	else if (blk.size == 3) {
-		blk_sort_3(state, blk);
-		return;
-	}
-
-	// Choose pivots & split
-	int pivots[2];
-	quicksort_pivots(cfg, state, blk, pivots);
-	const split_t split = blk_split(state, blk, pivots[0], pivots[1]);
-	quicksort_impl(cfg, state, split.bot);
-	quicksort_impl(cfg, state, split.mid);
-	quicksort_impl(cfg, state, split.top);
-}
-
-void
 sort_quicksort(const quicksort_config_t *cfg, state_t* state)
 {
 	assert(state->sb.size == 0);
@@ -249,5 +213,5 @@ sort_quicksort(const quicksort_config_t *cfg, state_t* state)
 
 	// Create block
 	const blk_t blk = { .dest = BLK_A_TOP, .size = state->sa.size };
-	quicksort_impl(cfg, state, blk);
+	quicksort_nm_impl(cfg, state, blk);
 }

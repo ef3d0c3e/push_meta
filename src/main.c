@@ -35,7 +35,7 @@ main(int ac, char** av)
 	}
 
 	quicksort_config_t qcfg = {
-		.search_depth = 3,
+		.search_depth = 2,
 
 		.nm_max_iters = 50,
 		.nm_tol = 0.01f,

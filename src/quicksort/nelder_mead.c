@@ -13,13 +13,12 @@ evaluate_pivots(const quicksort_config_t* cfg, const state_t* state, blk_t blk, 
 	state_t new = state_clone(state);
 
 	new.search_depth += 1;
-	static size_t count = 0;
 
 	// Split & Evaluate
 	const split_t split = blk_split(&new, blk, p1, p2);
-	quicksort_impl(cfg, &new, split.bot);
-	quicksort_impl(cfg, &new, split.mid);
-	quicksort_impl(cfg, &new, split.top);
+	quicksort_nm_impl(cfg, &new, split.bot);
+	quicksort_nm_impl(cfg, &new, split.mid);
+	quicksort_nm_impl(cfg, &new, split.top);
 
 	const size_t cost = new.op_count;
 	state_destroy(&new);
@@ -89,6 +88,7 @@ simplex_diameter(const float simplex[3][2])
 	return max;
 }
 
+/** @brief Compute the currest best cost */
 static inline size_t
 best_cost(const size_t fvals[3])
 {
@@ -374,8 +374,8 @@ optimize_pivots(const quicksort_config_t* cfg,
 	free(cache);
 }
 
-void
-quicksort_pivots(const quicksort_config_t* cfg, const state_t* state, blk_t blk, int* pivots)
+static inline void
+get_pivots(const quicksort_config_t* cfg, const state_t* state, blk_t blk, int* pivots)
 {
 	int* tmp_buf = xmalloc(sizeof(int) * blk.size);
 	for (size_t i = 0; i < blk.size; ++i)
@@ -394,4 +394,39 @@ quicksort_pivots(const quicksort_config_t* cfg, const state_t* state, blk_t blk,
 		pivots[1] = tmp_buf[(size_t)(f2 * (float)(blk.size - 1) + .5f)];
 	}
 	free(tmp_buf);
+}
+
+void
+quicksort_nm_impl(const quicksort_config_t *cfg, state_t* state, blk_t blk)
+{
+	if (blk.size == 0)
+		return;
+
+	// Normalize direction
+	if (blk.dest == BLK_A_BOT && state->sa.size == blk.size)
+		blk.dest = BLK_A_TOP;
+	else if (blk.dest == BLK_B_BOT && state->sb.size == blk.size)
+		blk.dest = BLK_B_TOP;
+
+	// Sort manually for small blocks
+	if (blk.size == 1) {
+		blk_move(state, blk.dest, BLK_A_TOP);
+		return;
+	}
+	else if (blk.size == 2) {
+		blk_sort_2(state, blk);
+		return;
+	}
+	else if (blk.size == 3) {
+		blk_sort_3(state, blk);
+		return;
+	}
+
+	// Choose pivots & split
+	int pivots[2];
+	get_pivots(cfg, state, blk, pivots);
+	const split_t split = blk_split(state, blk, pivots[0], pivots[1]);
+	quicksort_nm_impl(cfg, state, split.bot);
+	quicksort_nm_impl(cfg, state, split.mid);
+	quicksort_nm_impl(cfg, state, split.top);
 }
