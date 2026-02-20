@@ -170,29 +170,23 @@ blk_sort_3(state_t* state, blk_t blk)
 
 /* --- Quicksort --- */
 split_t
-blk_split(state_t *state, blk_t blk, int p1, int p2)
+blk_split(state_t* state, blk_t blk, int p1, int p2)
 {
 	split_t split = {
-		.top = { .size = 0, .dest = blk.dest == BLK_B_BOT ? BLK_B_TOP : BLK_B_BOT},
-		.mid = { .size = 0, .dest = (blk.dest & BLK_SEL__) == BLK_B__ ? BLK_A_BOT : BLK_B_TOP},
-		.bot = { .size = 0, .dest = blk.dest == BLK_A_TOP ? BLK_A_BOT : BLK_A_TOP},
+		.top = { .size = 0, .dest = blk.dest == BLK_B_BOT ? BLK_B_TOP : BLK_B_BOT },
+		.mid = { .size = 0, .dest = (blk.dest & BLK_SEL__) == BLK_B__ ? BLK_A_BOT : BLK_B_TOP },
+		.bot = { .size = 0, .dest = blk.dest == BLK_A_TOP ? BLK_A_BOT : BLK_A_TOP },
 	};
 
-	while (blk.size)
-	{
+	while (blk.size) {
 		const int val = blk_value(state, blk.dest, 0);
-		if (val >= p2)
-		{
+		if (val >= p2) {
 			blk_move(state, blk.dest, split.bot.dest);
 			++split.bot.size;
-		}
-		else if (val >= p1)
-		{
+		} else if (val >= p1) {
 			blk_move(state, blk.dest, split.mid.dest);
 			++split.mid.size;
-		}
-		else
-		{
+		} else {
 			blk_move(state, blk.dest, split.top.dest);
 			++split.top.size;
 		}
@@ -202,7 +196,9 @@ blk_split(state_t *state, blk_t blk, int p1, int p2)
 }
 
 void
-sort_quicksort(const quicksort_config_t *cfg, state_t* state)
+sort_quicksort(const quicksort_config_t* cfg,
+               state_t* state,
+               void (*sort)(const quicksort_config_t* cfg, state_t* state, blk_t blk))
 {
 	assert(state->sb.size == 0);
 	assert(state->sa.size == state->sa.capacity);
@@ -213,5 +209,5 @@ sort_quicksort(const quicksort_config_t *cfg, state_t* state)
 
 	// Create block
 	const blk_t blk = { .dest = BLK_A_TOP, .size = state->sa.size };
-	quicksort_nm_impl(cfg, state, blk);
+	sort(cfg, state, blk);
 }

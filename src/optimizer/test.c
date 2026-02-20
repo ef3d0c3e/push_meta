@@ -17,7 +17,7 @@ static inline void test(optimizer_conf_t cfg, const int *array, size_t size)
 		.nm_final_radius = 2,
 	};
 
-	sort_quicksort(&qcfg, &state);
+	sort_quicksort(&qcfg, &state, quicksort_nm_impl);
 	assert(state.sa.size == size);
 	assert(state.sb.size == 0);
 	assert(stack_is_sorted(&state.sa));

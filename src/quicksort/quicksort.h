@@ -66,7 +66,7 @@ blk_value(const state_t* state, enum blk_dest blk, size_t pos);
  * @param to Move to this location
  */
 void
-blk_move(state_t *state, enum blk_dest from, enum blk_dest to);
+blk_move(state_t* state, enum blk_dest from, enum blk_dest to);
 /**
  * @brief Sort a block of two element onto A's top
  *
@@ -76,7 +76,7 @@ blk_move(state_t *state, enum blk_dest from, enum blk_dest to);
  * @param blk A block of 2 elements
  */
 void
-blk_sort_2(state_t *state, blk_t blk);
+blk_sort_2(state_t* state, blk_t blk);
 /**
  * @brief Sort a block of three element onto A's top
  *
@@ -86,7 +86,7 @@ blk_sort_2(state_t *state, blk_t blk);
  * @param blk A block of 3 elements
  */
 void
-blk_sort_3(state_t *state, blk_t blk);
+blk_sort_3(state_t* state, blk_t blk);
 
 typedef struct
 {
@@ -121,6 +121,8 @@ typedef struct
 void
 quicksort_nm_impl(const quicksort_config_t* cfg, state_t* state, blk_t blk);
 void
-sort_quicksort(const quicksort_config_t* cfg, state_t* state);
+sort_quicksort(const quicksort_config_t* cfg,
+               state_t* state,
+               void (*sort)(const quicksort_config_t* cfg, state_t* state, blk_t blk));
 
 #endif // QUICKSORT_H

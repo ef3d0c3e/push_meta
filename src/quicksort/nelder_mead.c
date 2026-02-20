@@ -348,7 +348,8 @@ optimize_pivots(const quicksort_config_t* cfg,
 		  cfg, state, blk, tmp_buf, best_i1, best_i2, cache, n, fvals[best_idx]);
 		const int N = (2 * radius + 1) * (2 * radius + 1);
 		int i;
-//#pragma omp parallel for shared(best, cache, final_i1, final_i2, state, tmp_buf, blk, cfg, n) private(i) schedule(static)
+		// #pragma omp parallel for shared(best, cache, final_i1, final_i2, state, tmp_buf, blk,
+		// cfg, n) private(i) schedule(static)
 		for (i = 0; i < N; ++i) {
 			const int di1 = i / (2 * radius + 1) - radius;
 			const int di2 = i % (2 * radius + 1) - radius;
@@ -360,7 +361,7 @@ optimize_pivots(const quicksort_config_t* cfg,
 				continue;
 			const size_t c =
 			  evaluate_index_cached(cfg, state, blk, tmp_buf, ni1, ni2, cache, n, SIZE_MAX);
-//#pragma omp critical
+			// #pragma omp critical
 			if (c < best) {
 				best = c;
 				final_i1 = ni1;
@@ -382,10 +383,10 @@ get_pivots(const quicksort_config_t* cfg, const state_t* state, blk_t blk, int* 
 		tmp_buf[i] = blk_value(state, blk.dest, i);
 	qsort(tmp_buf, blk.size, sizeof(int), cmp);
 
-	// Use (20%, 80%) as pivots
+	// Use (Q1, Q3) as pivots
 	if (state->search_depth > cfg->search_depth) {
-		pivots[0] = tmp_buf[(20 * blk.size) / 100];
-		pivots[1] = tmp_buf[(80 * blk.size) / 100];
+		pivots[0] = tmp_buf[(33 * blk.size) / 100];
+		pivots[1] = tmp_buf[(66 * blk.size) / 100];
 	} else {
 		float f1, f2;
 		optimize_pivots(cfg, state, blk, tmp_buf, &f1, &f2);
@@ -397,7 +398,7 @@ get_pivots(const quicksort_config_t* cfg, const state_t* state, blk_t blk, int* 
 }
 
 void
-quicksort_nm_impl(const quicksort_config_t *cfg, state_t* state, blk_t blk)
+quicksort_nm_impl(const quicksort_config_t* cfg, state_t* state, blk_t blk)
 {
 	if (blk.size == 0)
 		return;
@@ -412,12 +413,10 @@ quicksort_nm_impl(const quicksort_config_t *cfg, state_t* state, blk_t blk)
 	if (blk.size == 1) {
 		blk_move(state, blk.dest, BLK_A_TOP);
 		return;
-	}
-	else if (blk.size == 2) {
+	} else if (blk.size == 2) {
 		blk_sort_2(state, blk);
 		return;
-	}
-	else if (blk.size == 3) {
+	} else if (blk.size == 3) {
 		blk_sort_3(state, blk);
 		return;
 	}
