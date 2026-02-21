@@ -45,31 +45,35 @@ typedef struct
 	size_t generate;
 	int list;
 	const char* method;
+	size_t plot[2];
 } options_t;
 
 static void
 print_help(const char* program)
 {
-	fprintf(stderr,
-	        "%1$s -- A meta solver for the Push_Swap problem\n"
-	        "\n"
-	        "Usage:\n"
-	        "	%1$s [OPTIONS] COMMAND ARGUMENTS\n"
-	        "\n"
-	        "Example:\n"
-	        "	%1$s list 3 4 2 1 # Sort a list passed in arguments\n"
-	        "	%1$s generate 500 # Sort a generated list\n"
-	        "\n"
-	        "Commands:\n"
-	        "	generate|gen NUM	Generate a random list from a seed\n"
-	        "	list VALUES		Sort the list provided in arguments\n"
-	        "\n"
-	        "Options:\n"
-	        "	-s, --seed NUM		Use a specific seed for `generate'\n"
-	        "	-m, --method METHOD	Use a specific sorting method, available method:\n"
-	        "		- 'nm', 'Nelder-Mead': (default)\n"
-	        "",
-	        program);
+	fprintf(
+	  stderr,
+	  "%1$s -- A meta solver for the Push_Swap problem\n"
+	  "\n"
+	  "Usage:\n"
+	  "	%1$s [OPTIONS] COMMAND ARGUMENTS\n"
+	  "\n"
+	  "Example:\n"
+	  "	%1$s list 3 4 2 1 # Sort a list passed in arguments\n"
+	  "	%1$s generate 500 # Sort a generated list\n"
+	  "\n"
+	  "Commands:\n"
+	  "	generate|gen NUM	Generate a random list from a seed\n"
+	  "	list VALUES		Sort the list provided in arguments\n"
+	  "\n"
+	  "Options:\n"
+	  "	-s, --seed NUM		Use a specific seed for `generate'\n"
+	  "	-m, --method METHOD	Use a specific sorting method, available method:\n"
+	  "		- 'nm', 'Nelder-Mead': (default)\n"
+	  "		- 'poly', 'Polynomial approximation'\n"
+	  "	-p, --plot DEPTH SIZE	Output a plot for every block at depth DEPTH of size SIZE\n"
+	  "",
+	  program);
 }
 
 int
@@ -86,6 +90,7 @@ main(int ac, char** av)
 		.generate = 0,
 		.list = 0,
 		.method = "nm",
+		.plot = { SIZE_MAX, SIZE_MAX },
 	};
 	for (int i = 1; i < ac;) {
 		// Show help
@@ -106,7 +111,9 @@ main(int ac, char** av)
 				exit(1);
 			}
 			i += 2;
-		} else if (!strcmp(av[i], "-m") || !strcmp(av[i], "--method")) {
+		}
+		// Method
+		else if (!strcmp(av[i], "-m") || !strcmp(av[i], "--method")) {
 			if (i + 1 >= ac) {
 				fprintf(stderr, "Expected an sort method after `%s'\n", av[i]);
 				exit(1);
@@ -114,11 +121,36 @@ main(int ac, char** av)
 
 			if (!strcmp(av[i + 1], "nm") || !strcmp(av[i + 1], "Nelder-Mead")) {
 				opts.method = "nm";
+			} else if (!strcmp(av[i + 1], "poly") || !strcmp(av[i + 1], "Polynomial")) {
+				opts.method = "poly";
 			} else {
 				fprintf(stderr, "Unknown sorting method `%s'\n", av[i + 1]);
 				exit(1);
 			}
 			i += 2;
+		}
+		// Plot
+		else if (!strcmp(av[i], "-p") || !strcmp(av[i], "--plot")) {
+			if (i + 2 >= ac) {
+				fprintf(stderr, "Expected DEPTH and SIZE after `%s'\n", av[i]);
+				exit(1);
+			}
+
+			char* end;
+			// Depth
+			opts.plot[0] = strtoul(av[i + 1], &end, 10);
+			if (*end) {
+				fprintf(stderr, "Invalid DEPTH for `%s'\n", av[i]);
+				exit(1);
+			}
+			// Size
+			opts.plot[1] = strtoul(av[i + 2], &end, 10);
+			if (*end) {
+				fprintf(stderr, "Invalid SIZE for `%s'\n", av[i]);
+				exit(1);
+			}
+
+			i += 3;
 		}
 		// Generate
 		else if (!strcmp(av[i], "gen") || !strcmp(av[i], "generate")) {
@@ -166,7 +198,8 @@ main(int ac, char** av)
 	} else if (opts.generate) {
 		for (size_t i = 0; i < state_capacity; ++i) {
 			while (1) {
-				int val = (int)(((uint32_t)random_int(&opts.random_state)) % (uint32_t)state_capacity);
+				int val =
+				  (int)(((uint32_t)random_int(&opts.random_state)) % (uint32_t)state_capacity);
 				int valid = 1;
 				for (size_t j = 0; j < state.sa.size; ++j) {
 					if (state.sa.data[j] == val) {
@@ -187,11 +220,15 @@ main(int ac, char** av)
 	quicksort_data_t data;
 	if (!strcmp(opts.method, "nm"))
 		data = quicksort_nm((quicksort_nm_t){
-		  .max_depth = 3,
-		  .max_iters = 50,
-		  .tol = 0.01f,
+		  .max_depth = 1,
+		  .max_iters = 500,
+		  .tol = 0.001f,
 		  .initial_scale = 0.55f,
-		  .final_radius = 2,
+		  .final_radius = 20,
+		});
+	else if (!strcmp(opts.method, "poly"))
+		data = quicksort_poly((quicksort_poly_t){
+		  .sample_radius = 2,
 		});
 	else
 		abort();

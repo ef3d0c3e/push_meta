@@ -208,5 +208,5 @@ sort_quicksort(quicksort_data_t* data,
 
 	// Create block
 	const blk_t blk = { .dest = BLK_A_TOP, .size = state->sa.size };
-	data->sort(data, state, blk);
+	data->sort(data, state, blk, SIZE_MAX);
 }

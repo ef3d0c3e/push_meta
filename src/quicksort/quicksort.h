@@ -124,7 +124,17 @@ typedef struct
 quicksort_data_t
 quicksort_nm(quicksort_nm_t);
 void
-quicksort_nm_impl(quicksort_data_t* data, state_t* state, blk_t blk);
+quicksort_nm_impl(quicksort_data_t* data, state_t* state, blk_t blk, size_t depth_override);
+
+typedef struct {
+	size_t sample_radius;
+} quicksort_poly_t;
+
+/** @brief Create quicksort data for Polynomial */
+quicksort_data_t
+quicksort_poly(quicksort_poly_t);
+void
+quicksort_poly_impl(quicksort_data_t* data, state_t* state, blk_t blk, size_t depth_override);
 
 typedef enum
 {
@@ -152,8 +162,9 @@ struct quicksort_data_t
 	union
 	{
 		quicksort_nm_t nm;
+		quicksort_poly_t poly;
 	};
-	void (*sort)(quicksort_data_t*, state_t*, blk_t);
+	void (*sort)(quicksort_data_t*, state_t*, blk_t, size_t);
 
 	quicksort_plot_t* plots;
 	size_t plots_size;

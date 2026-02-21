@@ -20,7 +20,12 @@ cmp(const void* x, const void* y)
 }
 
 static inline size_t
-evaluate_pivots(quicksort_data_t* data, const state_t* state, blk_t blk, int p1, int p2)
+evaluate_pivots(quicksort_data_t* data,
+                const state_t* state,
+                blk_t blk,
+                int p1,
+                int p2,
+                size_t depth_override)
 {
 	state_t new = state_clone(state);
 
@@ -28,9 +33,9 @@ evaluate_pivots(quicksort_data_t* data, const state_t* state, blk_t blk, int p1,
 
 	// Split & Evaluate
 	const split_t split = blk_split(&new, blk, p1, p2);
-	quicksort_nm_impl(data, &new, split.bot);
-	quicksort_nm_impl(data, &new, split.mid);
-	quicksort_nm_impl(data, &new, split.top);
+	quicksort_nm_impl(data, &new, split.bot, depth_override);
+	quicksort_nm_impl(data, &new, split.mid, depth_override);
+	quicksort_nm_impl(data, &new, split.top, depth_override);
 
 	const size_t cost = new.op_count;
 	state_destroy(&new);
@@ -62,7 +67,7 @@ plot_pivots(quicksort_data_t* data, state_t* state, blk_t blk, const int domain[
 	size_t* plot = xmalloc(sizeof(size_t) * width * height);
 	bzero(plot, sizeof(size_t) * width * height);
 
-	char *settings = format_settings(data);
+	char* settings = format_settings(data);
 	char* values = xmalloc(sizeof(char) * blk.size * (16));
 	char* ptr = values;
 	for (size_t i = 0; i < blk.size; ++i)
@@ -75,13 +80,16 @@ plot_pivots(quicksort_data_t* data, state_t* state, blk_t blk, const int domain[
 	size_t i;
 #pragma omp parallel for schedule(dynamic) private(i) shared(plot)
 	for (i = 0; i < width * height; ++i) {
+		if (i % width == 0) {
+			printf("Progress (%f)\n", (float)(size_t)(i / width) / (float)height);
+		}
 		const int p1 = (int)(i % width);
 		const int p2 = (int)(i / width);
 		if (p2 < p1)
 			continue;
 
-		const size_t cost = evaluate_pivots(data, state, blk, p1, p2);
-		plot[(size_t)p1 + (size_t)p2 * width] = cost;
+		const size_t cost = evaluate_pivots(data, state, blk, p1, p2, SIZE_MAX);
+		plot[(size_t)p1 + (height - (size_t)p2 - 1) * width] = cost;
 	}
 	quicksort_data_add_plot(data,
 	                        (quicksort_plot_t){
@@ -123,7 +131,8 @@ evaluate_index_cached(quicksort_data_t* data,
                       size_t i2,
                       size_t* cache,
                       size_t n,
-                      size_t best_cost)
+                      size_t best_cost,
+                      size_t depth_override)
 {
 	assert(i1 < n && i2 < n && i1 <= i2);
 
@@ -135,7 +144,7 @@ evaluate_index_cached(quicksort_data_t* data,
 
 	const int p1 = tmp_buf[i1];
 	const int p2 = tmp_buf[i2];
-	cache[key] = evaluate_pivots(data, state, blk, p1, p2);
+	cache[key] = evaluate_pivots(data, state, blk, p1, p2, depth_override);
 	return cache[key];
 }
 
@@ -193,8 +202,8 @@ optimize_pivots(quicksort_data_t* data,
 	for (size_t i = 0; i < n * n; ++i)
 		cache[i] = SIZE_MAX;
 
-	float base_u = 0.33f;
-	float base_v = 0.5f;
+	float base_u = 0.25f;
+	float base_v = 0.75f;
 
 	float simplex[3][2];
 	simplex[0][0] = base_u;
@@ -220,7 +229,7 @@ optimize_pivots(quicksort_data_t* data,
 		if (idx2 < idx1)
 			idx2 = idx1; /* safety */
 		fvals[i] = evaluate_index_cached(
-		  data, state, blk, tmp_buf, idx1, idx2, cache, n, best_cost(fvals));
+		  data, state, blk, tmp_buf, idx1, idx2, cache, n, best_cost(fvals), SIZE_MAX);
 	}
 
 	/* Main NM loop */
@@ -246,9 +255,13 @@ optimize_pivots(quicksort_data_t* data,
 			}
 		}
 		const size_t best = best_cost(fvals);
+		const float diameter = simplex_diameter(simplex);
+		size_t depth = data->nm.max_depth;
+		//if (diameter < 0.01f)
+		//	depth += 1;
 
 		/* Stop on convergence */
-		if (simplex_diameter(simplex) < data->nm.tol)
+		if (diameter < data->nm.tol)
 			break;
 
 		/* centroid of best two (exclude worst at index 2) */
@@ -270,7 +283,7 @@ optimize_pivots(quicksort_data_t* data,
 			xr_i2 = xr_i1;
 
 		const size_t fr =
-		  evaluate_index_cached(data, state, blk, tmp_buf, xr_i1, xr_i2, cache, n, best);
+		  evaluate_index_cached(data, state, blk, tmp_buf, xr_i1, xr_i2, cache, n, best, depth);
 		// Expansion
 		if (fr < fvals[0]) {
 			float xe[2] = { centroid[0] + gamma * (xr[0] - centroid[0]),
@@ -283,8 +296,8 @@ optimize_pivots(quicksort_data_t* data,
 			size_t xe_i2 = f_to_index(xe_f2, n);
 			if (xe_i2 < xe_i1)
 				xe_i2 = xe_i1;
-			size_t fe =
-			  evaluate_index_cached(data, state, blk, tmp_buf, xe_i1, xe_i2, cache, n, best);
+			size_t fe = evaluate_index_cached(
+			  data, state, blk, tmp_buf, xe_i1, xe_i2, cache, n, best, depth);
 
 			if (fe < fr) {
 				/* accept expansion */
@@ -319,8 +332,8 @@ optimize_pivots(quicksort_data_t* data,
 				size_t xc_i2 = f_to_index(xc_f2, n);
 				if (xc_i2 < xc_i1)
 					xc_i2 = xc_i1;
-				const size_t fc =
-				  evaluate_index_cached(data, state, blk, tmp_buf, xc_i1, xc_i2, cache, n, best);
+				const size_t fc = evaluate_index_cached(
+				  data, state, blk, tmp_buf, xc_i1, xc_i2, cache, n, best, depth);
 				if (fc <= fr) {
 					simplex[2][0] = xc[0];
 					simplex[2][1] = xc[1];
@@ -344,7 +357,7 @@ optimize_pivots(quicksort_data_t* data,
 						if (idi2 < idi1)
 							idi2 = idi1;
 						fvals[i] = evaluate_index_cached(
-						  data, state, blk, tmp_buf, idi1, idi2, cache, n, best);
+						  data, state, blk, tmp_buf, idi1, idi2, cache, n, best, depth);
 					}
 				}
 			}
@@ -360,8 +373,8 @@ optimize_pivots(quicksort_data_t* data,
 				size_t xc_i2 = f_to_index(xc_f2, n);
 				if (xc_i2 < xc_i1)
 					xc_i2 = xc_i1;
-				const size_t fc =
-				  evaluate_index_cached(data, state, blk, tmp_buf, xc_i1, xc_i2, cache, n, best);
+				const size_t fc = evaluate_index_cached(
+				  data, state, blk, tmp_buf, xc_i1, xc_i2, cache, n, best, depth);
 				if (fc < fvals[2]) {
 					simplex[2][0] = xc[0];
 					simplex[2][1] = xc[1];
@@ -385,7 +398,7 @@ optimize_pivots(quicksort_data_t* data,
 						if (idi2 < idi1)
 							idi2 = idi1;
 						fvals[i] = evaluate_index_cached(
-						  data, state, blk, tmp_buf, idi1, idi2, cache, n, best);
+						  data, state, blk, tmp_buf, idi1, idi2, cache, n, best, depth);
 					}
 				}
 			}
@@ -412,11 +425,11 @@ optimize_pivots(quicksort_data_t* data,
 	const int radius = (int)data->nm.final_radius;
 	if (radius != 0) {
 		size_t best = evaluate_index_cached(
-		  data, state, blk, tmp_buf, best_i1, best_i2, cache, n, fvals[best_idx]);
+		  data, state, blk, tmp_buf, best_i1, best_i2, cache, n, fvals[best_idx], SIZE_MAX);
 		const int N = (2 * radius + 1) * (2 * radius + 1);
 		int i;
-		// #pragma omp parallel for shared(best, cache, final_i1, final_i2, state, tmp_buf, blk,
-		// cfg, n) private(i) schedule(static)
+#pragma omp parallel for schedule(static)                                                        \
+  shared(best, cache, final_i1, final_i2, state, tmp_buf, blk, data, n) private(i)
 		for (i = 0; i < N; ++i) {
 			const int di1 = i / (2 * radius + 1) - radius;
 			const int di2 = i % (2 * radius + 1) - radius;
@@ -427,14 +440,16 @@ optimize_pivots(quicksort_data_t* data,
 			if (ni1 >= n || ni2 >= n || ni2 < ni1)
 				continue;
 			const size_t c =
-			  evaluate_index_cached(data, state, blk, tmp_buf, ni1, ni2, cache, n, SIZE_MAX);
-			// #pragma omp critical
+			  evaluate_index_cached(data, state, blk, tmp_buf, ni1, ni2, cache, n, SIZE_MAX, SIZE_MAX);
+#pragma omp critical
 			if (c < best) {
 				best = c;
 				final_i1 = ni1;
 				final_i2 = ni2;
 			}
 		}
+		if (state->search_depth == 0 && blk.size == 500)
+			printf("converged %zu %zu %zu\n", final_i1, final_i2, best);
 	}
 
 	*out_f1 = fmaxf(0.f, (float)final_i1 / (float)(n - 1));
@@ -443,7 +458,11 @@ optimize_pivots(quicksort_data_t* data,
 }
 
 static inline void
-get_pivots(quicksort_data_t* data, const state_t* state, blk_t blk, int* pivots)
+get_pivots(quicksort_data_t* data,
+           const state_t* state,
+           blk_t blk,
+           int* pivots,
+           size_t depth_override)
 {
 	int* tmp_buf = xmalloc(sizeof(int) * blk.size);
 	for (size_t i = 0; i < blk.size; ++i)
@@ -451,7 +470,8 @@ get_pivots(quicksort_data_t* data, const state_t* state, blk_t blk, int* pivots)
 	qsort(tmp_buf, blk.size, sizeof(int), cmp);
 
 	// Use (Q1, Q3) as pivots
-	if (state->search_depth > data->nm.max_depth) {
+	if ((depth_override == SIZE_MAX && state->search_depth > data->nm.max_depth) ||
+	    (depth_override != SIZE_MAX && state->search_depth > depth_override)) {
 		pivots[0] = tmp_buf[(33 * blk.size) / 100];
 		pivots[1] = tmp_buf[(66 * blk.size) / 100];
 	} else {
@@ -465,12 +485,13 @@ get_pivots(quicksort_data_t* data, const state_t* state, blk_t blk, int* pivots)
 }
 
 void
-quicksort_nm_impl(quicksort_data_t* data, state_t* state, blk_t blk)
+quicksort_nm_impl(quicksort_data_t* data, state_t* state, blk_t blk, size_t depth_override)
 {
 	if (blk.size == 0)
 		return;
-	if (blk.size == 50 && state->search_depth == 0) {
-		plot_pivots(data, state, blk, (const int[4]){ 0, 50, 0, 50 });
+	printf("%zu", blk.size);
+	if (blk.size == 500 && state->search_depth == 0) {
+		// plot_pivots(data, state, blk, (const int[4]){ 0, 500, 0, 500 });
 	}
 
 	// Normalize direction
@@ -493,9 +514,9 @@ quicksort_nm_impl(quicksort_data_t* data, state_t* state, blk_t blk)
 
 	// Choose pivots & split
 	int pivots[2];
-	get_pivots(data, state, blk, pivots);
+	get_pivots(data, state, blk, pivots, depth_override);
 	const split_t split = blk_split(state, blk, pivots[0], pivots[1]);
-	quicksort_nm_impl(data, state, split.bot);
-	quicksort_nm_impl(data, state, split.mid);
-	quicksort_nm_impl(data, state, split.top);
+	quicksort_nm_impl(data, state, split.bot, depth_override);
+	quicksort_nm_impl(data, state, split.mid, depth_override);
+	quicksort_nm_impl(data, state, split.top, depth_override);
 }

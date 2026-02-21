@@ -166,7 +166,7 @@ op_name(enum stack_op op)
 	return table[op];
 }
 
-inline void
+static inline void
 state_op_raw(state_t* state, enum stack_op op)
 {
 	assert(state->sa.capacity == state->sb.capacity);
