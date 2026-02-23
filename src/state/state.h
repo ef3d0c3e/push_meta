@@ -153,7 +153,7 @@ typedef struct state_t state_t;
 typedef struct
 {
 	/** Start address of the stack */
-	int* const start;
+	int* start;
 	/** @brief Stack elements, within `[start, start + 2 * capacity]` */
 	int* data;
 	/** @brief Number of elements in the stack */
@@ -276,6 +276,8 @@ state_destroy(state_t *state);
  */
 state_t
 state_bifurcate(const state_t* state, size_t history);
+state_t
+state_deep_bifurcate(const state_t* state, size_t history);
 /**
  * @brief Evaluate an operation on the state
  *
@@ -310,6 +312,9 @@ state_undo(state_t* state, enum stack_op op);
  */
 state_t
 state_clone(const state_t *state);
+
+state_t
+state_deep_clone(const state_t* state);
 
 /**
  * @brief Print the state on stdout

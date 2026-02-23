@@ -39,6 +39,9 @@ enum blk_dest
 	BLK_B_BOT = BLK_B__ | BLK_BOT__, // 11
 };
 
+const char*
+blk_dest_name(enum blk_dest dest);
+
 typedef struct
 {
 	size_t size;
@@ -114,25 +117,27 @@ typedef struct quicksort_data_t quicksort_data_t;
 typedef struct
 {
 	size_t max_depth;    /* Maximum search depth */
-	size_t max_iters;  /* Maximum number of iterations before giving up/convergance */
+	size_t max_iters;    /* Maximum number of iterations before giving up/convergance */
 	float tol;           /* Simplex radius tolerance in normalized [0,1] space, e.g. 1e-3f */
 	float initial_scale; /* Initial simplex scale (fraction of [0,1]), e.g. 0.05f */
 	size_t final_radius; /* Final search radius */
 } quicksort_nm_t;
 
 /** @brief Create quicksort data for Nelder-Mead */
-quicksort_data_t
-quicksort_nm(quicksort_nm_t);
+quicksort_data_t quicksort_nm(quicksort_nm_t);
 void
 quicksort_nm_impl(quicksort_data_t* data, state_t* state, blk_t blk, size_t depth_override);
 
-typedef struct {
-	size_t sample_radius;
+typedef struct
+{
+	size_t bruteforce_size;
+	size_t neighborhood_radius;
+	size_t neighborhood_depth;
+	size_t max_depth;
 } quicksort_poly_t;
 
 /** @brief Create quicksort data for Polynomial */
-quicksort_data_t
-quicksort_poly(quicksort_poly_t);
+quicksort_data_t quicksort_poly(quicksort_poly_t);
 void
 quicksort_poly_impl(quicksort_data_t* data, state_t* state, blk_t blk, size_t depth_override);
 
@@ -155,6 +160,10 @@ typedef struct
 	size_t size[2];
 	/** @brief Plot data */
 	void* data;
+
+	char** tagged;
+	size_t tagged_size;
+	size_t tagged_capacity;
 } quicksort_plot_t;
 
 struct quicksort_data_t
@@ -172,13 +181,15 @@ struct quicksort_data_t
 
 /** @brief Free the quicksort data */
 void
-quicksort_data_free(quicksort_data_t *data);
+quicksort_data_free(quicksort_data_t* data);
 /** @brief Add a plot to @p data */
-void
+quicksort_plot_t*
 quicksort_data_add_plot(quicksort_data_t* data, quicksort_plot_t plot);
+void
+quicksort_plot_add_value(quicksort_plot_t* plot, char* value);
 /** @brief Write plots to files */
 void
-quicksort_write_plots(const quicksort_data_t *data);
+quicksort_write_plots(const quicksort_data_t* data);
 
 void
 sort_quicksort(quicksort_data_t* data, state_t* state);

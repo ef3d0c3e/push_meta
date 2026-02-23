@@ -166,7 +166,7 @@ should_prune(const state_t* state, size_t depth, enum stack_op op, enum stack_op
 					return 1;
 				break;
 			case STACK_OP_RRR:
-				if (op == STACK_OP_RRB)
+				if (op == STACK_OP_RR)
 					return 1;
 				break;
 			default:
@@ -338,7 +338,7 @@ optimize(const state_t* state, optimizer_conf_t cfg)
 	size_t ops_count;
 	enum stack_op* ops = build_optimal_walk(state, skip_data, &cfg, &ops_count);
 
-	state_t final = state_bifurcate(state, state->saves_size > 1 ? 1 : 0);
+	state_t final = state_deep_bifurcate(state, state->saves_size > 1 ? 1 : 0);
 	final.op_count = 0;
 	for (size_t i = 0; i < ops_count; ++i) {
 		//printf("op=%s\n", op_name(ops[i]));

@@ -1,6 +1,18 @@
 #include <quicksort/quicksort.h>
 #include <stdio.h>
 
+const char*
+blk_dest_name(enum blk_dest dest)
+{
+	static const char* names[] = {
+		[BLK_A_TOP] = "A_TOP",
+		[BLK_A_BOT] = "A_BOT",
+		[BLK_B_TOP] = "B_TOP",
+		[BLK_B_BOT] = "B_BOT",
+	};
+	return names[dest];
+}
+
 inline int
 blk_value(const state_t* state, enum blk_dest blk, size_t pos)
 {
@@ -196,8 +208,7 @@ blk_split(state_t* state, blk_t blk, int p1, int p2)
 }
 
 void
-sort_quicksort(quicksort_data_t* data,
-               state_t* state)
+sort_quicksort(quicksort_data_t* data, state_t* state)
 {
 	assert(state->sb.size == 0);
 	assert(state->sa.size == state->sa.capacity);

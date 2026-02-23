@@ -28,6 +28,29 @@ typedef struct
 	float coeffs[10];
 } poly;
 
+static char*
+get_plot_desc(const quicksort_data_t* data, state_t* state, blk_t blk, const char* tag)
+{
+	char *desc, *values;
+	values = xmalloc(sizeof(char) * blk.size * 12);
+	char* ptr = values;
+	for (size_t i = 0; i < blk.size; ++i)
+		ptr += sprintf(ptr, i == 0 ? "%d" : ",%d", blk_value(state, blk.dest, i));
+	asprintf(&desc,
+	         "poly,%s,max_depth=%zu,neighborhood_radius=%zu,neighborhood_depth=%zu,bruteforce_"
+	         "size=%zu,%s,%s",
+	         tag,
+	         data->poly.max_depth,
+	         data->poly.neighborhood_radius,
+	         data->poly.neighborhood_depth,
+	         data->poly.bruteforce_size,
+			 blk_dest_name(blk.dest),
+	         values);
+	free(values);
+
+	return desc;
+}
+
 static inline size_t
 cost_function(quicksort_data_t* data,
               state_t* state,
@@ -379,24 +402,27 @@ scan_neighborhood(quicksort_data_t* data,
 	size_t best = SIZE_MAX;
 	size_t best_pivots[2] = { *i2, *i2 };
 
-	const size_t radius = 4;
+	const size_t radius = data->poly.neighborhood_radius;
 	const size_t side = radius * 2 + 1;
 	size_t i;
-	// #pragma omp parallel for schedule(dynamic) private(i)
+#pragma omp parallel for schedule(dynamic) private(i) shared(poly)
 	for (i = 0; i < (2 * radius + 1) * (2 * radius + 1); ++i) {
 		const int p1 = (int)*i1 - (int)radius + (int)(i % side);
 		const int p2 = (int)*i2 - (int)radius + (int)(i / side);
 		if (p1 < 0 || p2 < 0 || p2 < p1 || (size_t)p1 >= blk.size || (size_t)p2 >= blk.size)
 			continue;
 
-		const size_t cost = cost_cached(data, state, blk, poly, (size_t)p1, (size_t)p2, 2);
-		// #pragma omp critical
+		const size_t cost = cost_cached(
+		  data, state, blk, poly, (size_t)p1, (size_t)p2, data->poly.neighborhood_depth);
+#pragma omp critical
 		if (cost < best) {
 			best = cost;
 			best_pivots[0] = (size_t)p1;
 			best_pivots[1] = (size_t)p2;
 		}
 	}
+	if (blk.size == 500)
+		printf("best = %zu\n", best);
 	*i1 = best_pivots[0];
 	*i2 = best_pivots[1];
 }
@@ -408,11 +434,62 @@ get_pivots(quicksort_data_t* data, state_t* state, blk_t blk, int* pivots, size_
 	for (size_t i = 0; i < blk.size; ++i)
 		tmp_buf[i] = blk_value(state, blk.dest, i);
 	qsort(tmp_buf, blk.size, sizeof(int), cmp);
-	// Only recurse once for now
-	if (state->search_depth <= 0 ||
-	    (state->search_depth < depth_override && depth_override != SIZE_MAX)) {
+
+	pivots[0] = tmp_buf[(size_t)(.25f * (float)(blk.size - 1) + .5f)];
+	pivots[1] = tmp_buf[(size_t)(.60f * (float)(blk.size - 1) + .5f)];
+
+	// Bruteforce
+	if (blk.size < data->poly.bruteforce_size) {
+		size_t best = SIZE_MAX;
+		size_t i;
+
+		size_t* plot = NULL;
+		size_t best_idx[2] = { 0, 0 };
+		if (state->search_depth == 0) {
+			plot = xmalloc(sizeof(size_t) * blk.size * blk.size);
+			bzero(plot, sizeof(size_t) * blk.size * blk.size);
+		}
+#pragma omp parallel for schedule(dynamic) private(i) shared(data, state)
+		for (i = 0; i < blk.size * blk.size; ++i) {
+			const int p1 = tmp_buf[i % blk.size];
+			const int p2 = tmp_buf[i / blk.size];
+			if (p2 <= p1)
+				continue;
+			const size_t cost = cost_function(data, state, blk, p1, p2, depth_override);
+			if (plot)
+				plot[i % blk.size + (blk.size - i / blk.size - 1) * blk.size] = cost;
+#pragma omp critical
+			if (cost < best) {
+				best = cost;
+				pivots[0] = p1;
+				pivots[1] = p2;
+				best_idx[0] = i % blk.size;
+				best_idx[1] = i / blk.size;
+			}
+		}
+		if (plot) {
+			quicksort_plot_t* p =
+			  quicksort_data_add_plot(data,
+			                          (quicksort_plot_t){
+			                            .desc = get_plot_desc(data, state, blk, "bruteforce"),
+			                            .data = plot,
+			                            .size = { blk.size, blk.size },
+			                            .type = PLOT_SIZE,
+			                          });
+			char* converge;
+			asprintf(&converge,
+			         "converge,%zu,%zu,%zu",
+			         best_idx[0],
+			         best_idx[1],
+			         best);
+			quicksort_plot_add_value(p, converge);
+		}
+	}
+	// Compute poly surrogate & minimize
+	else if (state->search_depth <= data->poly.max_depth ||
+	         (state->search_depth < depth_override && depth_override != SIZE_MAX)) {
 		poly poly = build_poly(data, state, blk, depth_override, tmp_buf);
-		const float domain[4] = { 0.1f, 0.9f, 0.1f, 0.9f };
+		const float domain[4] = { 0.0f, 1.0f, 0.0f, 1.0f };
 		float u, v;
 		poly_minimize(&poly, domain, &u, &v);
 		if (blk.size == 500)
@@ -427,10 +504,8 @@ get_pivots(quicksort_data_t* data, state_t* state, blk_t blk, int* pivots, size_
 		pivots[0] = tmp_buf[i1];
 		pivots[1] = tmp_buf[i2];
 		free(poly.cache);
-	} else {
-		pivots[0] = tmp_buf[33 * blk.size / 100];
-		pivots[1] = tmp_buf[66 * blk.size / 100];
 	}
+
 	free(tmp_buf);
 }
 

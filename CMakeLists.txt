@@ -4,7 +4,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.22)
 PROJECT(push_meta LANGUAGES C)
 
 SET(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-SET(CMAKE_C_FLAGS "-Wall -Wextra -Wconversion -pedantic -std=gnu23 -O3 -fopenmp")
+SET(CMAKE_C_FLAGS "-Wall -Wextra -Wconversion -pedantic -std=gnu23 -g -fopenmp")
 
 FILE(GLOB_RECURSE SOURCES
 	"src/*.c")

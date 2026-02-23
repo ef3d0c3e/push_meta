@@ -227,9 +227,10 @@ main(int ac, char** av)
 		  .final_radius = 20,
 		});
 	else if (!strcmp(opts.method, "poly"))
-		data = quicksort_poly((quicksort_poly_t){
-		  .sample_radius = 2,
-		});
+		data = quicksort_poly((quicksort_poly_t){ .max_depth = 0,
+		                                          .neighborhood_radius = 5,
+		                                          .neighborhood_depth = 2,
+		                                          .bruteforce_size = 7 });
 	else
 		abort();
 
@@ -250,7 +251,7 @@ main(int ac, char** av)
 	quicksort_write_plots(&data);
 
 	optimizer_conf_t cfg = {
-		.search_width = 1000,
+		.search_width = 100,
 		.search_depth = 4,
 	};
 

@@ -91,7 +91,7 @@ state_destroy(state_t* state)
 }
 
 state_t
-state_clone(const state_t *state)
+state_clone(const state_t* state)
 {
 	assert(state->sa.capacity == state->sb.capacity);
 	assert(state->sa.size + state->sb.size == state->sa.capacity);
@@ -111,6 +111,40 @@ state_clone(const state_t *state)
 	memcpy(new.sb.data, state->sb.data, sizeof(int) * state->sb.size);
 	new.sb.size = state->sb.size;
 
+	return new;
+}
+
+state_t
+state_deep_clone(const state_t* state)
+{
+	assert(state->sa.capacity == state->sb.capacity);
+	assert(state->sa.size + state->sb.size == state->sa.capacity);
+	state_t new = {
+		.sa = stack_new(state->sa.capacity),
+		.sb = stack_new(state->sb.capacity),
+		.bifurcate_point = 0,
+		.saves = xmalloc(sizeof(save_t) * state->saves_size),
+		.saves_capacity = state->saves_size,
+		.saves_size = state->saves_size,
+		.op_count = state->op_count,
+		.search_depth = state->search_depth,
+	};
+
+	memcpy(new.sa.data, state->sa.data, sizeof(int) * state->sa.size);
+	new.sa.size = state->sa.size;
+	memcpy(new.sb.data, state->sb.data, sizeof(int) * state->sb.size);
+	new.sb.size = state->sb.size;
+
+	for (size_t i = 0; i < new.saves_size; ++i) {
+		int *data = xmalloc(new.sa.capacity * sizeof(int));
+		memcpy(data, state->saves[i].data, sizeof(int) * new.sa.capacity);
+		new.saves[i] = (save_t){
+			.data = data,
+			.sz_a = state->saves[i].sz_a,
+			.sz_b = state->saves[i].sz_b,
+			.op = state->saves[i].op,
+		};
+	}
 	return new;
 }
 
@@ -137,6 +171,42 @@ state_bifurcate(const state_t* state, size_t history)
 	new.sb.size = save->sz_b;
 	memcpy(new.sa.data, save->data, sizeof(int) * new.sa.size);
 	memcpy(new.sb.data, save->data + new.sa.size, sizeof(int) * new.sb.size);
+	return new;
+}
+
+state_t
+state_deep_bifurcate(const state_t* state, size_t history)
+{
+	assert(state->sa.capacity == state->sb.capacity);
+	assert(state->sa.size + state->sb.size == state->sa.capacity);
+	assert(history < state->saves_size);
+
+	state_t new = {
+		.sa = stack_new(state->sa.capacity),
+		.sb = stack_new(state->sb.capacity),
+		.bifurcate_point = 0,
+		.saves = xmalloc(sizeof(save_t) * history),
+		.saves_capacity = history,
+		.saves_size = history,
+		.op_count = state->op_count,
+		.search_depth = state->search_depth,
+	};
+	const save_t* save = &state->saves[history > 0 ? history - 1 : 0];
+	new.sa.size = save->sz_a;
+	new.sb.size = save->sz_b;
+	memcpy(new.sa.data, save->data, sizeof(int) * new.sa.size);
+	memcpy(new.sb.data, save->data + new.sa.size, sizeof(int) * new.sb.size);
+
+	for (size_t i = 0; i < new.saves_size; ++i) {
+		int *data = xmalloc(new.sa.capacity * sizeof(int));
+		memcpy(data, state->saves[i].data, sizeof(int) * new.sa.capacity);
+		new.saves[i] = (save_t){
+			.data = data,
+			.sz_a = state->saves[i].sz_a,
+			.sz_b = state->saves[i].sz_b,
+			.op = state->saves[i].op,
+		};
+	}
 	return new;
 }
 
